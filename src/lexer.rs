@@ -1,9 +1,3 @@
-enum Token {
-    Keyword,
-    Literal,
-    Operator,
-}
-
 struct Lexer {
     lines: Vec<String>,
 }
