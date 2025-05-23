@@ -2,7 +2,6 @@ use std::error;
 
 #[derive(Debug)]
 pub enum Error {
-    UnexpectedCharacter(char),
     UnexpectedToken(String),
     LexingError { lexeme: String, line: usize },
 }
@@ -10,9 +9,6 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self {
-            Error::UnexpectedCharacter(c) => {
-                format!("Unexpected character: {}", c)
-            }
             Error::UnexpectedToken(s) => {
                 format!("Unexpected token: {}", s)
             }
