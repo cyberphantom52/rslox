@@ -1,5 +1,6 @@
 use crate::error::Error;
 
+#[derive(Debug, PartialEq)]
 pub enum UnaryOperator {
     LeftParen,
     RightParen,
@@ -15,6 +16,7 @@ pub enum UnaryOperator {
     Bang,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum BinaryOperator {
     BangEqual,
     Less,
@@ -25,6 +27,7 @@ pub enum BinaryOperator {
     GreaterEqual,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Operator {
     Unary(UnaryOperator),
     Binary(BinaryOperator),
