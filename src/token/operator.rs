@@ -16,6 +16,25 @@ pub enum UnaryOperator {
     Bang,
 }
 
+impl std::fmt::Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LeftParen => write!(f, "LEFT_PAREN"),
+            Self::RightParen => write!(f, "RIGHT_PAREN"),
+            Self::LeftBrace => write!(f, "LEFT_BRACE"),
+            Self::RightBrace => write!(f, "RIGHT_BRACE"),
+            Self::Comma => write!(f, "COMMA"),
+            Self::Dot => write!(f, "DOT"),
+            Self::Selmicolon => write!(f, "SEMICOLON"),
+            Self::Plus => write!(f, "PLUS"),
+            Self::Minus => write!(f, "MINUS"),
+            Self::Star => write!(f, "STAR"),
+            Self::Slash => write!(f, "SLASH"),
+            Self::Bang => write!(f, "BANG"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum BinaryOperator {
     BangEqual,
@@ -27,10 +46,33 @@ pub enum BinaryOperator {
     GreaterEqual,
 }
 
+impl std::fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BangEqual => write!(f, "BANG_EQUAL"),
+            Self::Less => write!(f, "LESS"),
+            Self::LessEqual => write!(f, "LESS_EQUAL"),
+            Self::Equal => write!(f, "EQUAL"),
+            Self::EqualEqual => write!(f, "EQUAL_EQUAL"),
+            Self::Greater => write!(f, "GREATER"),
+            Self::GreaterEqual => write!(f, "GREATER_EQUAL"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Operator {
     Unary(UnaryOperator),
     Binary(BinaryOperator),
+}
+
+impl std::fmt::Display for Operator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unary(op) => write!(f, "{}", op),
+            Self::Binary(op) => write!(f, "{}", op),
+        }
+    }
 }
 
 impl TryFrom<char> for Operator {

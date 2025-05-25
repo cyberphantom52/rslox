@@ -25,7 +25,7 @@ fn main() {
             let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
             let lexer = lexer::Lexer::new(content);
             for token in lexer.consume() {
-                println!("{:?}", token);
+                println!("{}", token);
             }
         }
     }

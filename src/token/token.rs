@@ -29,6 +29,29 @@ pub enum Keyword {
     While,
 }
 
+impl std::fmt::Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::And => write!(f, "AND"),
+            Self::Class => write!(f, "CLASS"),
+            Self::Else => write!(f, "ELSE"),
+            Self::False => write!(f, "FALSE"),
+            Self::Fun => write!(f, "FUN"),
+            Self::For => write!(f, "FOR"),
+            Self::If => write!(f, "IF"),
+            Self::Nil => write!(f, "NIL"),
+            Self::Or => write!(f, "OR"),
+            Self::Print => write!(f, "PRINT"),
+            Self::Return => write!(f, "RETURN"),
+            Self::Super => write!(f, "SUPER"),
+            Self::This => write!(f, "THIS"),
+            Self::True => write!(f, "TRUE"),
+            Self::Var => write!(f, "VAR"),
+            Self::While => write!(f, "WHILE"),
+        }
+    }
+}
+
 impl TryFrom<&str> for Keyword {
     type Error = Error;
 
@@ -63,6 +86,16 @@ pub enum TokenType {
     Invalid,
 }
 
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Operator(op) => write!(f, "{}", op),
+            Self::Keyword(kw) => write!(f, "{}", kw),
+            Self::Literal(lit) => write!(f, "{:?}", lit),
+            Self::Invalid => write!(f, "Invalid"),
+        }
+    }
+}
 impl From<&str> for TokenType {
     fn from(value: &str) -> Self {
         if let Ok(op) = Operator::try_from(value) {
@@ -82,6 +115,13 @@ pub struct Token {
     line_number: usize,
 }
 
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // TODO: Add parsed value for literals
+        write!(f, "{} {} null", self.ty, self.lexeme)
+    }
+}
+
 impl Token {
     pub fn new(ty: TokenType, lexeme: String, line_number: usize) -> Self {
         Self {
@@ -89,5 +129,9 @@ impl Token {
             lexeme,
             line_number,
         }
+    }
+
+    pub fn ty(&self) -> &TokenType {
+        &self.ty
     }
 }
