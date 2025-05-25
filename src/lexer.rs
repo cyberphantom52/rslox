@@ -72,7 +72,8 @@ impl Lexer {
                     }
                 }
 
-                ' ' | '\r' | '\t' => continue,
+                c if c.is_whitespace() => continue,
+
                 _ => TokenType::Invalid,
             };
 
