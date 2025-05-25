@@ -27,6 +27,7 @@ fn main() {
             for token in lexer.consume() {
                 println!("{}", token);
             }
+            println!("EOF  null")
         }
     }
 }
