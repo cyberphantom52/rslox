@@ -58,7 +58,7 @@ impl Lexer {
 
                 c if c.is_alphabetic() || c == '_' => {
                     while let Some(next) = iterator.peek() {
-                        if !next.is_alphanumeric() {
+                        if !next.is_alphanumeric() && *next != '_' {
                             break;
                         }
                         lexeme.push(iterator.next().unwrap());
