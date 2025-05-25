@@ -1,6 +1,6 @@
-use crate::token::{Operator, Token, TokenType, UnaryOperator};
+use crate::token::{Literal, Operator, Token, TokenType, UnaryOperator};
 
-struct Lexer {
+pub struct Lexer {
     lines: Vec<String>,
 }
 
@@ -15,35 +15,68 @@ impl Lexer {
         let mut iterator = line.chars().peekable();
         let mut tokens = Vec::new();
         while let Some(c) = iterator.next() {
-            let token = match c {
-                '(' | ')' | '{' | '}' | ',' | '.' | ';' | '+' | '-' | '*' => Token::new(
-                    TokenType::from(c.to_string().as_str()),
-                    c.to_string(),
-                    line_number,
-                ),
+            let mut lexeme = c.to_string();
+            let token_type = match c {
+                // Operators
+                '(' | ')' | '{' | '}' | ',' | '.' | ';' | '+' | '-' | '*' => {
+                    TokenType::from(lexeme.as_str())
+                }
                 '!' | '=' | '<' | '>' => {
-                    let mut lexeme = c.to_string();
                     if let Some(&next) = iterator.peek() {
                         if next == '=' {
                             lexeme.push(iterator.next().unwrap())
                         }
                     }
-
-                    Token::new(TokenType::from(lexeme.as_str()), lexeme, line_number)
+                    TokenType::from(lexeme.as_str())
                 }
                 '/' => match iterator.peek() {
                     Some(&next) if next == '/' => return tokens,
-                    _ => Token::new(
-                        TokenType::Operator(Operator::Unary(UnaryOperator::Slash)),
-                        c.to_string(),
-                        line_number,
-                    ),
+                    _ => TokenType::Operator(Operator::Unary(UnaryOperator::Slash)),
                 },
-                ' ' | '\r' | '\t' => todo!(),
-                _ => panic!(""),
+
+                // Literals
+                '"' => {
+                    lexeme = String::new();
+                    while let Some(next) = iterator.next() {
+                        if next == '"' {
+                            break;
+                        }
+                        lexeme.push(next);
+                    }
+                    TokenType::Literal(Literal::String)
+                }
+
+                c if c.is_digit(10) => {
+                    while let Some(next) = iterator.peek() {
+                        if !next.is_digit(10) {
+                            break;
+                        }
+                        lexeme.push(iterator.next().unwrap());
+                    }
+                    TokenType::Literal(Literal::Number)
+                }
+
+                c if c.is_alphabetic() || c == '_' => {
+                    while let Some(next) = iterator.peek() {
+                        if !next.is_alphanumeric() {
+                            break;
+                        }
+                        lexeme.push(iterator.next().unwrap());
+                    }
+
+                    let ty = TokenType::from(lexeme.as_str());
+                    if ty == TokenType::Invalid {
+                        TokenType::Literal(Literal::Identifier)
+                    } else {
+                        ty
+                    }
+                }
+
+                ' ' | '\r' | '\t' => continue,
+                _ => TokenType::Invalid,
             };
 
-            tokens.push(token);
+            tokens.push(Token::new(token_type, lexeme, line_number));
         }
         tokens
     }
