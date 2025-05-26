@@ -42,11 +42,11 @@ impl<'a> Iterator for Lexer<'a> {
                 }
 
                 '!' | '=' | '<' | '>' => {
-                    let split_index = match iterator.peek() {
+                    let token_len = match iterator.peek() {
                         Some(&next) if next == '=' => 2,
                         _ => 1,
                     };
-                    lexeme = &self.remaining[0..split_index];
+                    lexeme = &self.remaining[..token_len];
 
                     TokenType::from(lexeme)
                 }
