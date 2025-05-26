@@ -112,7 +112,6 @@ impl From<&str> for TokenType {
 pub struct Token {
     ty: TokenType,
     lexeme: String,
-    line_number: usize,
 }
 
 impl std::fmt::Display for Token {
@@ -123,12 +122,8 @@ impl std::fmt::Display for Token {
 }
 
 impl Token {
-    pub fn new(ty: TokenType, lexeme: String, line_number: usize) -> Self {
-        Self {
-            ty,
-            lexeme,
-            line_number,
-        }
+    pub fn new(ty: TokenType, lexeme: String) -> Self {
+        Self { ty, lexeme }
     }
 
     pub fn ty(&self) -> &TokenType {

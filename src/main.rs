@@ -23,9 +23,12 @@ fn main() {
     match args.command {
         Command::Tokenize { filename } => {
             let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
-            let lexer = lexer::Lexer::new(content);
-            for token in lexer.consume() {
-                println!("{}", token);
+            let mut lexer = lexer::Lexer::new(content.as_str());
+            while let Some(token) = lexer.next() {
+                match token {
+                    Ok(t) => println!("{}", t),
+                    Err(e) => eprintln!("{}", e),
+                }
             }
             println!("EOF  null")
         }

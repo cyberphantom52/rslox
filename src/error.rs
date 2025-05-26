@@ -3,6 +3,7 @@ use std::error;
 #[derive(Debug)]
 pub enum Error {
     UnexpectedToken(String),
+    UnterminatedString,
     LexingError { lexeme: String, line: usize },
 }
 
@@ -11,6 +12,9 @@ impl std::fmt::Display for Error {
         let msg = match self {
             Error::UnexpectedToken(s) => {
                 format!("Unexpected token: {}", s)
+            }
+            Error::UnterminatedString => {
+                format!("Unterminated String")
             }
             Error::LexingError { lexeme, line } => {
                 format!("[line {}]: Lexing error: {}", line, lexeme)
