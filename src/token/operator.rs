@@ -105,7 +105,9 @@ impl TryFrom<&str> for Operator {
             "==" => Ok(Operator::Binary(BinaryOperator::EqualEqual)),
             ">" => Ok(Operator::Binary(BinaryOperator::Greater)),
             ">=" => Ok(Operator::Binary(BinaryOperator::GreaterEqual)),
-            _ => Err(Error::UnexpectedToken(value.to_string())),
+            _ => Err(Error::ParseError {
+                msg: format!("Unknown operator: {}", value),
+            }),
         }
     }
 }

@@ -6,7 +6,17 @@ use super::operator::*;
 pub enum Literal {
     Identifier,
     String,
-    Number,
+    Number(f64),
+}
+
+impl std::fmt::Display for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identifier => write!(f, "IDENTIFIER"),
+            Self::String => write!(f, "STRING"),
+            Self::Number(_) => write!(f, "NUMBER"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -73,7 +83,9 @@ impl TryFrom<&str> for Keyword {
             "true" => Ok(Keyword::True),
             "var" => Ok(Keyword::Var),
             "while" => Ok(Keyword::While),
-            _ => Err(Error::UnexpectedToken(value.to_string())),
+            _ => Err(Error::ParseError {
+                msg: format!("Unknown keyword: {}", value),
+            }),
         }
     }
 }
@@ -91,11 +103,12 @@ impl std::fmt::Display for TokenType {
         match self {
             Self::Operator(op) => write!(f, "{}", op),
             Self::Keyword(kw) => write!(f, "{}", kw),
-            Self::Literal(lit) => write!(f, "{:?}", lit),
+            Self::Literal(lit) => write!(f, "{}", lit),
             Self::Invalid => write!(f, "Invalid"),
         }
     }
 }
+
 impl From<&str> for TokenType {
     fn from(value: &str) -> Self {
         if let Ok(op) = Operator::try_from(value) {
@@ -109,24 +122,28 @@ impl From<&str> for TokenType {
 }
 
 #[derive(Debug)]
-pub struct Token {
+pub struct Token<'a> {
     ty: TokenType,
-    lexeme: String,
+    lexeme: &'a str,
 }
 
-impl std::fmt::Display for Token {
+impl std::fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Add parsed value for literals
         write!(f, "{} {} null", self.ty, self.lexeme)
     }
 }
 
-impl Token {
-    pub fn new(ty: TokenType, lexeme: String) -> Self {
+impl<'a> Token<'a> {
+    pub fn new(ty: TokenType, lexeme: &'a str) -> Self {
         Self { ty, lexeme }
     }
 
     pub fn ty(&self) -> &TokenType {
         &self.ty
+    }
+
+    pub fn lexeme(&self) -> &str {
+        &self.lexeme
     }
 }

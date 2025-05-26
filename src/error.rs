@@ -2,22 +2,31 @@ use std::error;
 
 #[derive(Debug)]
 pub enum Error {
-    UnexpectedToken(String),
-    UnterminatedString,
-    LexingError { lexeme: String, line: usize },
+    ParseError { msg: String },
+    LexingError { ty: LexingError, line: usize },
+}
+
+#[derive(Debug)]
+pub enum LexingError {
+    UnterminatedString(String),
+    UnexpectedCharacter(char),
+}
+
+impl std::fmt::Display for LexingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexingError::UnterminatedString(s) => write!(f, "Unterminated string literal: \"{s}\""),
+            LexingError::UnexpectedCharacter(c) => write!(f, "Unexpected character: '{c}'"),
+        }
+    }
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self {
-            Error::UnexpectedToken(s) => {
-                format!("Unexpected token: {}", s)
-            }
-            Error::UnterminatedString => {
-                format!("Unterminated String")
-            }
-            Error::LexingError { lexeme, line } => {
-                format!("[line {}]: Lexing error: {}", line, lexeme)
+            Error::ParseError { msg } => format!("Parse error: {msg}"),
+            Error::LexingError { ty, line } => {
+                format!("[line {line}]: {}", ty)
             }
         };
 
