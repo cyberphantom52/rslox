@@ -69,10 +69,7 @@ impl<'a> Iterator for Lexer<'a> {
 
                 // Literals
                 c if is_alphabetic(c) || c == '_' => {
-                    let len = iterator
-                        .clone()
-                        .take_while(|&next| is_literal(next))
-                        .count();
+                    let len = iterator.take_while(|&next| is_literal(next)).count();
                     lexeme = &self.remaining[0..=len];
 
                     if let Ok(kw) = Keyword::try_from(lexeme) {
