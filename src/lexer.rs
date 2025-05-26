@@ -118,3 +118,138 @@ impl<'a> Lexer<'a> {
         Self { remaining: stream }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn identifiers() {
+        let input = "andy formless fo _ _123 _abc ab123
+        abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_";
+        let mut lexer = Lexer::new(input);
+
+        let expected = vec![
+            "andy",
+            "formless",
+            "fo",
+            "_",
+            "_123",
+            "_abc",
+            "ab123",
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_",
+        ];
+
+        for expected_lexeme in expected {
+            match lexer.next() {
+                Some(Ok(token)) => {
+                    assert_eq!(token.lexeme(), expected_lexeme);
+                    assert!(matches!(
+                        token.ty(),
+                        TokenType::Literal(Literal::Identifier)
+                    ));
+                }
+                Some(Err(e)) => panic!("Unexpected error: {}", e),
+                None => panic!("Expected more tokens, but got None"),
+            }
+        }
+    }
+
+    #[test]
+    fn keywords() {
+        let input = "and class else false for fun if nil or return super this true var while";
+        let mut lexer = Lexer::new(input);
+
+        let expected_keywords = vec![
+            "and", "class", "else", "false", "for", "fun", "if", "nil", "or", "return", "super",
+            "this", "true", "var", "while",
+        ];
+
+        for expected_keyword in expected_keywords {
+            match lexer.next() {
+                Some(Ok(token)) => {
+                    assert_eq!(token.lexeme(), expected_keyword);
+                    assert!(matches!(token.ty(), TokenType::Keyword(_)));
+                }
+                Some(Err(e)) => panic!("Unexpected error: {}", e),
+                None => panic!("Expected more tokens, but got None"),
+            }
+        }
+    }
+
+    #[test]
+    fn strings() {
+        // ""string""unter
+        let input = "\"\"\"string\"\"unterminated string";
+        let mut lexer = Lexer::new(input);
+        let expected_strings = vec!["", "string"];
+
+        for expected_string in expected_strings {
+            match lexer.next() {
+                Some(Ok(token)) => {
+                    assert_eq!(token.lexeme(), expected_string);
+                    assert!(matches!(token.ty(), TokenType::Literal(Literal::String)));
+                }
+                Some(Err(e)) => panic!("Unexpected error: {}", e),
+                None => panic!("Expected more tokens, but got None"),
+            }
+        }
+
+        assert!(matches!(
+            lexer.next(),
+            Some(Err(Error::LexingError {
+                ty: crate::error::LexingError::UnterminatedString(_),
+                line: 1
+            }))
+        ));
+    }
+
+    #[test]
+    fn numbers() {
+        let input = "123 123.456 .456 123.";
+        // let mut lexer = Lexer::new(input);
+    }
+
+    #[test]
+    fn punctuators() {
+        let input = r#"(){};,+-*!===<=>=!=<>/."#;
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            "(", ")", "{", "}", ";", ",", "+", "-", "*", "!=", "==", "<=", ">=", "!=", "<", ">",
+            "/", ".",
+        ];
+
+        for expected_token in expected_tokens {
+            match lexer.next() {
+                Some(Ok(token)) => {
+                    assert_eq!(token.lexeme(), expected_token);
+                    assert!(matches!(token.ty(), TokenType::Operator(_)));
+                }
+                Some(Err(e)) => panic!("Unexpected error: {}", e),
+                None => panic!("Expected more tokens, but got None"),
+            }
+        }
+    }
+
+    #[test]
+    fn whitespace() {
+        let input = "space      tabs\t\t\t\tnewlines\n\n\n\n\nend";
+        let mut lexer = Lexer::new(input);
+        let expected_tokens = vec!["space", "tabs", "newlines", "end"];
+
+        for expected_token in expected_tokens {
+            match lexer.next() {
+                Some(Ok(token)) => {
+                    assert_eq!(token.lexeme(), expected_token);
+                    assert!(matches!(
+                        token.ty(),
+                        TokenType::Literal(Literal::Identifier)
+                    ));
+                }
+                Some(Err(e)) => panic!("Unexpected error: {}", e),
+                None => panic!("Expected more tokens, but got None"),
+            }
+        }
+    }
+}
