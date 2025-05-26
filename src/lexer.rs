@@ -56,7 +56,7 @@ impl<'a> Iterator for Lexer<'a> {
                         let newline = iterator.position(|c| c == '\n');
 
                         match newline {
-                            Some(pos) => self.remaining = &self.remaining[pos..],
+                            Some(pos) => self.remaining = &self.remaining[2 + pos..],
                             None => return None,
                         }
                         continue; // Skip to the next iteration
