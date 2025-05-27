@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    token::{Token, TokenType},
+    token::{Literal, Token, TokenType},
 };
 
 pub struct Lexer<'a> {
@@ -85,7 +85,21 @@ impl<'a> Iterator for Lexer<'a> {
                     }
                 }
 
-                c if c.is_ascii_digit() => continue,
+                c if c.is_ascii_digit() => {
+                    let len = iterator
+                        .take_while(|&next| next.is_ascii_digit() || next == '.')
+                        .count()
+                        + 1;
+
+                    let mut split =
+                        self.source_code[cur_byte_offset..cur_byte_offset + len].splitn(3, '.');
+                    self.byte_offset += match (split.next(), split.next(), split.next()) {
+                        (Some(one), Some(two), Some(_)) => one.len() + two.len(),
+                        (Some(one), Some(two), None) if two.is_empty() => one.len() - 1,
+                        _ => len - 1,
+                    };
+                }
+
                 _ => {
                     return Some(Err(Error::LexingError {
                         ty: crate::error::LexingError::UnexpectedCharacter(c),

@@ -22,7 +22,7 @@ impl TryFrom<&str> for Literal {
                 });
             }
         } else if value.chars().all(|c| c.is_ascii_digit() || c == '.') {
-            todo!()
+            Ok(Literal::Number(value.parse::<f64>().unwrap()))
         } else {
             let starts_with_number = value.chars().next().map_or(false, |c| c.is_ascii_digit());
 
@@ -170,7 +170,17 @@ impl std::fmt::Display for Token<'_> {
                     self.lexeme,
                     self.lexeme.trim_matches('"')
                 ),
-                Literal::Number(num) => write!(f, "{} {} {}", self.ty, num, num),
+                Literal::Number(num) => write!(
+                    f,
+                    "{} {} {}",
+                    self.ty,
+                    self.lexeme,
+                    if num.fract() == 0f64 {
+                        format!("{}.0", num)
+                    } else {
+                        format!("{}", num)
+                    }
+                ),
             },
             _ => write!(f, "{} {} null", self.ty, self.lexeme),
         }
