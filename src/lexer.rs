@@ -96,7 +96,7 @@ impl<'a> Iterator for Lexer<'a> {
 
             let lexeme = &self.source_code[cur_byte_offset..self.byte_offset];
             let token_ty = TokenType::from(lexeme);
-            return Some(Ok(Token::new(token_ty, lexeme.trim_matches('"'))));
+            return Some(Ok(Token::new(token_ty, lexeme)));
         }
         None
     }

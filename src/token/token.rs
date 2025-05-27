@@ -160,7 +160,20 @@ pub struct Token<'a> {
 impl std::fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Add parsed value for literals
-        write!(f, "{} {} null", self.ty, self.lexeme)
+        match &self.ty {
+            TokenType::Literal(lit) => match lit {
+                Literal::Identifier => write!(f, "{} {} null", self.ty, self.lexeme),
+                Literal::String => write!(
+                    f,
+                    "{} {} {}",
+                    self.ty,
+                    self.lexeme,
+                    self.lexeme.trim_matches('"')
+                ),
+                Literal::Number(num) => write!(f, "{} {} {}", self.ty, num, num),
+            },
+            _ => write!(f, "{} {} null", self.ty, self.lexeme),
+        }
     }
 }
 
