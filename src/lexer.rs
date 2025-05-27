@@ -1,17 +1,31 @@
 use crate::{
     error::Error,
-    token::{Keyword, Literal, Operator, Token, TokenType, UnaryOperator},
+    token::{Token, TokenType},
 };
 
 pub struct Lexer<'a> {
-    remaining: &'a str,
+    source_code: &'a str,
+    byte_offset: usize,
+}
+
+impl<'a> Lexer<'a> {
+    pub fn new(stream: &'a str) -> Self {
+        Self {
+            source_code: stream,
+            byte_offset: 0,
+        }
+    }
+
+    pub fn line(&self) -> usize {
+        self.source_code[..self.byte_offset].lines().count()
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
     type Item = Result<Token<'a>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut iterator = self.remaining.chars().peekable();
+        let mut iterator = self.source_code[self.byte_offset..].chars().peekable();
 
         let is_punct = |lexeme: char| -> bool {
             matches!(
@@ -21,104 +35,77 @@ impl<'a> Iterator for Lexer<'a> {
         };
 
         let is_alphabetic = |lexeme: char| -> bool { matches!(lexeme, 'a'..='z' | 'A'..='Z') };
-        let is_digit = |lexeme: char| -> bool { matches!(lexeme, '0'..='9') };
-        let is_alphanumeric = |lexeme: char| -> bool { is_alphabetic(lexeme) || is_digit(lexeme) };
+        let is_alphanumeric =
+            |lexeme: char| -> bool { is_alphabetic(lexeme) || lexeme.is_ascii_digit() };
         let is_literal =
             |lexeme: char| -> bool { is_alphanumeric(lexeme) || matches!(lexeme, '_') };
 
-        let mut lexeme: &str = "";
         while let Some(c) = iterator.next() {
-            let token_ty = match c {
-                c if c.is_whitespace() => {
-                    // Skip whitespace characters
-                    self.remaining = &self.remaining[1..];
-                    continue;
-                }
+            let cur_byte_offset = self.byte_offset;
+            self.byte_offset += c.len_utf8();
 
-                // Operators
-                c if is_punct(c) => {
-                    lexeme = &self.remaining[0..1];
-                    TokenType::from(lexeme)
-                }
+            match c {
+                c if c.is_whitespace() => continue,
+                c if is_punct(c) => {}
 
                 '!' | '=' | '<' | '>' => {
-                    let token_len = match iterator.peek() {
-                        Some(&next) if next == '=' => 2,
-                        _ => 1,
+                    self.byte_offset += match iterator.peek() {
+                        Some(&next) if next == '=' => next.len_utf8(),
+                        _ => 0,
                     };
-                    lexeme = &self.remaining[..token_len];
-
-                    TokenType::from(lexeme)
                 }
 
                 '/' => match iterator.peek() {
                     Some(&next) if next == '/' => {
                         let newline = iterator.position(|c| c == '\n');
-
                         match newline {
-                            Some(pos) => self.remaining = &self.remaining[2 + pos..],
+                            Some(pos) => self.byte_offset += pos + 1,
                             None => return None,
                         }
                         continue; // Skip to the next iteration
                     }
-                    _ => {
-                        lexeme = &self.remaining[0..1];
-                        TokenType::Operator(Operator::Unary(UnaryOperator::Slash))
-                    }
+                    _ => {}
                 },
 
                 // Literals
                 c if is_alphabetic(c) || c == '_' => {
                     let len = iterator.take_while(|&next| is_literal(next)).count();
-                    lexeme = &self.remaining[0..=len];
-
-                    if let Ok(kw) = Keyword::try_from(lexeme) {
-                        TokenType::Keyword(kw)
-                    } else {
-                        TokenType::Literal(Literal::Identifier)
-                    }
+                    self.byte_offset += len;
                 }
 
                 '"' => {
-                    let len;
                     if let Some(end) = iterator.position(|c| c == '"') {
-                        len = end + 1;
+                        self.byte_offset += end + 1;
                     } else {
+                        self.byte_offset = self.source_code.len();
                         return Some(Err(Error::LexingError {
-                            ty: crate::error::LexingError::UnterminatedString(String::new()),
-                            line: 1,
+                            ty: crate::error::LexingError::UnterminatedString,
+                            line: self.line(),
                         }));
                     }
-
-                    lexeme = &self.remaining[0..=len];
-                    TokenType::Literal(Literal::String)
                 }
 
-                c if is_digit(c) => TokenType::Literal(Literal::Number(0f64)),
+                c if c.is_ascii_digit() => continue,
                 _ => {
-                    self.remaining = &self.remaining[1..];
                     return Some(Err(Error::LexingError {
                         ty: crate::error::LexingError::UnexpectedCharacter(c),
-                        line: 1,
+                        line: self.line(),
                     }));
                 }
             };
 
-            self.remaining = &self.remaining[lexeme.len()..];
+            let lexeme = &self.source_code[cur_byte_offset..self.byte_offset];
+            let token_ty = TokenType::from(lexeme);
             return Some(Ok(Token::new(token_ty, lexeme.trim_matches('"'))));
         }
         None
     }
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(stream: &'a str) -> Self {
-        Self { remaining: stream }
-    }
-}
-
 #[cfg(test)]
 mod test {
+    use crate::token::Literal;
+
     use super::*;
 
     #[test]
@@ -222,7 +209,7 @@ mod test {
         assert!(matches!(
             lexer.next(),
             Some(Err(Error::LexingError {
-                ty: crate::error::LexingError::UnterminatedString(_),
+                ty: crate::error::LexingError::UnterminatedString,
                 line: 1
             }))
         ));
