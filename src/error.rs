@@ -8,14 +8,14 @@ pub enum Error {
 
 #[derive(Debug)]
 pub enum LexingError {
-    UnterminatedString(String),
+    UnterminatedString,
     UnexpectedCharacter(char),
 }
 
 impl std::fmt::Display for LexingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LexingError::UnterminatedString(s) => write!(f, "Unterminated string literal: \"{s}\""),
+            LexingError::UnterminatedString => write!(f, "Unterminated string literal"),
             LexingError::UnexpectedCharacter(c) => write!(f, "Unexpected character: {c}"),
         }
     }
