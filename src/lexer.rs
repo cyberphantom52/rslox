@@ -34,12 +34,6 @@ impl<'a> Iterator for Lexer<'a> {
             )
         };
 
-        let is_alphabetic = |lexeme: char| -> bool { matches!(lexeme, 'a'..='z' | 'A'..='Z') };
-        let is_alphanumeric =
-            |lexeme: char| -> bool { is_alphabetic(lexeme) || lexeme.is_ascii_digit() };
-        let is_literal =
-            |lexeme: char| -> bool { is_alphanumeric(lexeme) || matches!(lexeme, '_') };
-
         while let Some(c) = iterator.next() {
             let cur_byte_offset = self.byte_offset;
             self.byte_offset += c.len_utf8();
@@ -68,8 +62,11 @@ impl<'a> Iterator for Lexer<'a> {
                 },
 
                 // Literals
-                c if is_alphabetic(c) || c == '_' => {
-                    let len = iterator.take_while(|&next| is_literal(next)).count();
+                c if c.is_ascii_alphabetic() || c == '_' => {
+                    let is_lit = |next: char| -> bool {
+                        next.is_ascii_alphabetic() || next.is_ascii_digit() || matches!(next, '_')
+                    };
+                    let len = iterator.take_while(|&next| is_lit(next)).count();
                     self.byte_offset += len;
                 }
 
