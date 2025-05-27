@@ -2,7 +2,7 @@ use crate::error::Error;
 
 use super::operator::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Literal {
     Identifier,
     String,
@@ -47,7 +47,7 @@ impl std::fmt::Display for Literal {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Keyword {
     And,
     Class,
@@ -118,7 +118,7 @@ impl TryFrom<&str> for Keyword {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     Keyword(Keyword),
     Literal(Literal),
@@ -151,7 +151,7 @@ impl From<&str> for TokenType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Token<'a> {
     ty: TokenType,
     lexeme: &'a str,

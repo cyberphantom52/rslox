@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    token::{Literal, Token, TokenType},
+    token::{Token, TokenType},
 };
 
 pub struct Lexer<'a> {
@@ -118,7 +118,7 @@ impl<'a> Iterator for Lexer<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::token::Literal;
+    use crate::token::{Literal, Operator, UnaryOperator};
 
     use super::*;
 
@@ -212,7 +212,7 @@ mod test {
         for expected_string in expected_strings {
             match lexer.next() {
                 Some(Ok(token)) => {
-                    assert_eq!(token.lexeme(), expected_string);
+                    assert_eq!(token.lexeme().trim_matches('"'), expected_string);
                     assert!(matches!(token.ty(), TokenType::Literal(Literal::String)));
                 }
                 Some(Err(e)) => panic!("Unexpected error: {}", e),
@@ -232,7 +232,26 @@ mod test {
     #[test]
     fn numbers() {
         let input = "123 123.456 .456 123.";
-        // let mut lexer = Lexer::new(input);
+        let mut lexer = Lexer::new(input);
+
+        let expected_types = vec![
+            TokenType::Literal(Literal::Number(123.0)),
+            TokenType::Literal(Literal::Number(123.456)),
+            TokenType::Operator(Operator::Unary(UnaryOperator::Dot)),
+            TokenType::Literal(Literal::Number(456.0)), // .456 is treated as DOT 456
+            TokenType::Literal(Literal::Number(123.0)),
+            TokenType::Operator(Operator::Unary(UnaryOperator::Dot)),
+        ];
+
+        for expected_type in expected_types {
+            match lexer.next() {
+                Some(Ok(token)) => {
+                    assert_eq!(token.ty(), &expected_type);
+                }
+                Some(Err(e)) => panic!("Unexpected error: {}", e),
+                None => panic!("Expected more tokens, but got None"),
+            }
+        }
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::error::Error;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UnaryOperator {
     LeftParen,
     RightParen,
@@ -35,7 +35,7 @@ impl std::fmt::Display for UnaryOperator {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BinaryOperator {
     BangEqual,
     Less,
@@ -60,7 +60,7 @@ impl std::fmt::Display for BinaryOperator {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Operator {
     Unary(UnaryOperator),
     Binary(BinaryOperator),
