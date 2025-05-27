@@ -96,6 +96,7 @@ impl<'a> Iterator for Lexer<'a> {
 
                 c if is_digit(c) => TokenType::Literal(Literal::Number(0f64)),
                 _ => {
+                    self.remaining = &self.remaining[1..];
                     return Some(Err(Error::LexingError {
                         ty: crate::error::LexingError::UnexpectedCharacter(c),
                         line: 1,
@@ -119,6 +120,32 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn empty_input() {
+        let input = "";
+        let mut lexer = Lexer::new(input);
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn unexpected_characters() {
+        let input = "@\n#$\n%^&\n*";
+        let mut lexer = Lexer::new(input);
+
+        match lexer.next() {
+            Some(Err(e)) => {
+                assert!(matches!(
+                    e,
+                    Error::LexingError {
+                        ty: crate::error::LexingError::UnexpectedCharacter(_),
+                        line: 1
+                    }
+                ));
+            }
+            o => panic!("Expected an error for unexpected character, got: {:?}", o),
+        }
+    }
 
     #[test]
     fn identifiers() {
