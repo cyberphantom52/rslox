@@ -16,7 +16,7 @@ impl std::fmt::Display for LexingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LexingError::UnterminatedString(s) => write!(f, "Unterminated string literal: \"{s}\""),
-            LexingError::UnexpectedCharacter(c) => write!(f, "Unexpected character: '{c}'"),
+            LexingError::UnexpectedCharacter(c) => write!(f, "Unexpected character: {c}"),
         }
     }
 }
@@ -26,7 +26,7 @@ impl std::fmt::Display for Error {
         let msg = match self {
             Error::ParseError { msg } => format!("Parse error: {msg}"),
             Error::LexingError { ty, line } => {
-                format!("[line {line}]: {}", ty)
+                format!("[line {line}] Error: {}", ty)
             }
         };
 
