@@ -9,6 +9,34 @@ pub enum Literal {
     Number(f64),
 }
 
+impl TryFrom<&str> for Literal {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if value.starts_with('"') {
+            if value.ends_with('"') {
+                Ok(Literal::String)
+            } else {
+                return Err(Error::ParseError {
+                    msg: format!("Unterminated string literal: {}", value),
+                });
+            }
+        } else if value.chars().all(|c| c.is_ascii_digit() || c == '.') {
+            todo!()
+        } else {
+            let starts_with_number = value.chars().next().map_or(false, |c| c.is_ascii_digit());
+
+            if !starts_with_number && value.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                return Ok(Literal::Identifier);
+            }
+
+            Err(Error::ParseError {
+                msg: format!("Unknown literal type: {}", value),
+            })
+        }
+    }
+}
+
 impl std::fmt::Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -115,6 +143,8 @@ impl From<&str> for TokenType {
             Self::Operator(op)
         } else if let Ok(kw) = Keyword::try_from(value) {
             Self::Keyword(kw)
+        } else if let Ok(lit) = Literal::try_from(value) {
+            Self::Literal(lit)
         } else {
             Self::Invalid
         }
