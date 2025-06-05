@@ -1,10 +1,5 @@
-mod error;
-mod lexer;
-mod token;
-use std::{path::PathBuf, process::ExitCode};
-
 use clap::{Parser, Subcommand};
-
+use std::{path::PathBuf, process::ExitCode};
 #[derive(Parser, Debug)]
 #[command(version)]
 struct Args {
@@ -15,6 +10,7 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Command {
     Tokenize { filename: PathBuf },
+    Parse { filename: PathBuf },
 }
 
 fn main() -> ExitCode {
@@ -23,7 +19,7 @@ fn main() -> ExitCode {
     match args.command {
         Command::Tokenize { filename } => {
             let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
-            let mut lexer = lexer::Lexer::new(content.as_str());
+            let mut lexer = rslox::Lexer::new(content.as_str());
             while let Some(token) = lexer.next() {
                 match token {
                     Ok(t) => println!("{}", t),
@@ -34,6 +30,11 @@ fn main() -> ExitCode {
                 }
             }
             println!("EOF  null");
+        }
+        Command::Parse { filename } => {
+            let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
+            let lexer = rslox::Lexer::new(content.as_str());
+            let parser = rslox::Parser::with_lexer(lexer);
         }
     }
 
