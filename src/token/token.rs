@@ -192,8 +192,8 @@ impl<'a> Token<'a> {
         Self { ty, lexeme }
     }
 
-    pub fn ty(&self) -> &TokenType {
-        &self.ty
+    pub fn ty(&self) -> TokenType {
+        self.ty
     }
 
     pub fn lexeme(&self) -> &str {
