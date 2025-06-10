@@ -93,7 +93,7 @@ impl std::fmt::Display for Op {
         match self {
             Op::Call => write!(f, "call"),
             Op::Dot => write!(f, "."),
-            Op::Group => write!(f, "()"),
+            Op::Group => write!(f, "group"),
             Op::Class => write!(f, "class"),
             Op::And => write!(f, "and"),
             Op::Or => write!(f, "or"),
