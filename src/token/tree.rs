@@ -8,6 +8,21 @@ pub enum TokenTree<'a> {
     Cons(Op, Vec<TokenTree<'a>>),
 }
 
+impl std::fmt::Display for TokenTree<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenTree::Atom(atom) => write!(f, "{}", atom),
+            TokenTree::Cons(op, children) => {
+                write!(f, "({}", op)?;
+                for s in children {
+                    write!(f, " {}", s)?
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Atom<'a> {
     String(&'a str),
@@ -17,6 +32,20 @@ pub enum Atom<'a> {
     Ident(&'a str),
     Super,
     This,
+}
+
+impl std::fmt::Display for Atom<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Atom::String(s) => write!(f, "\"{}\"", s),
+            Atom::Number(n) => write!(f, "{}", n),
+            Atom::Nil => write!(f, "nil"),
+            Atom::Bool(b) => write!(f, "{}", b),
+            Atom::Ident(i) => write!(f, "{}", i),
+            Atom::Super => write!(f, "super"),
+            Atom::This => write!(f, "this"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -49,6 +78,37 @@ pub enum Op {
     EqualEqual,
     Greater,
     GreaterEqual,
+}
+
+impl std::fmt::Display for Op {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Op::Call => write!(f, "call"),
+            Op::Dot => write!(f, "."),
+            Op::Group => write!(f, "()"),
+            Op::Class => write!(f, "class"),
+            Op::And => write!(f, "and"),
+            Op::Or => write!(f, "or"),
+            Op::Var => write!(f, "var"),
+            Op::Print => write!(f, "print"),
+            Op::While => write!(f, "while"),
+            Op::For => write!(f, "for"),
+            Op::If => write!(f, "if"),
+            Op::Return => write!(f, "return"),
+            Op::Plus => write!(f, "+"),
+            Op::Minus => write!(f, "-"),
+            Op::Star => write!(f, "*"),
+            Op::Slash => write!(f, "/"),
+            Op::Bang => write!(f, "!"),
+            Op::BangEqual => write!(f, "!="),
+            Op::Less => write!(f, "<"),
+            Op::LessEqual => write!(f, "<="),
+            Op::Equal => write!(f, "="),
+            Op::EqualEqual => write!(f, "=="),
+            Op::Greater => write!(f, ">"),
+            Op::GreaterEqual => write!(f, ">="),
+        }
+    }
 }
 
 impl Op {
