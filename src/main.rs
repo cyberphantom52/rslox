@@ -34,7 +34,8 @@ fn main() -> ExitCode {
         Command::Parse { filename } => {
             let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
             let lexer = rslox::Lexer::new(content.as_str());
-            let parser = rslox::Parser::with_lexer(lexer);
+            let mut parser = rslox::Parser::with_lexer(lexer);
+            println!("{:?}", parser.parse())
         }
     }
 
