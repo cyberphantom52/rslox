@@ -122,7 +122,7 @@ impl std::fmt::Display for Op {
 impl Op {
     pub fn prefix_binding_power(&self) -> ((), u8) {
         match self {
-            Op::Bang | Op::Plus | Op::Minus => ((), 9),
+            Op::Bang | Op::Plus | Op::Minus => ((), 11),
             _ => panic!("bad op: {:?}", self),
         }
     }
