@@ -38,7 +38,13 @@ impl std::fmt::Display for Atom<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Atom::String(s) => write!(f, "\"{}\"", s),
-            Atom::Number(n) => write!(f, "{}", n),
+            Atom::Number(n) => {
+                if n.fract() == 0f64 {
+                    write!(f, "{}.0", n)
+                } else {
+                    write!(f, "{}", n)
+                }
+            }
             Atom::Nil => write!(f, "nil"),
             Atom::Bool(b) => write!(f, "{}", b),
             Atom::Ident(i) => write!(f, "{}", i),
