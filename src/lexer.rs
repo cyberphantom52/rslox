@@ -1,8 +1,9 @@
 use crate::{
-    error::Error,
+    error::{Error, LexingError},
     token::{Token, TokenType},
 };
 
+#[derive(Debug, Clone)]
 pub struct Lexer<'a> {
     source_code: &'a str,
     byte_offset: usize,
@@ -18,6 +19,11 @@ impl<'a> Lexer<'a> {
 
     pub fn line(&self) -> usize {
         self.source_code[..self.byte_offset].lines().count()
+    }
+
+    pub fn peek(&self) -> Option<Result<Token<'a>, Error>> {
+        let mut lexer_clone = self.clone();
+        lexer_clone.next()
     }
 }
 
@@ -243,7 +249,7 @@ mod test {
         for expected_type in expected_types {
             match lexer.next() {
                 Some(Ok(token)) => {
-                    assert_eq!(token.ty(), &expected_type);
+                    assert_eq!(token.ty(), expected_type);
                 }
                 Some(Err(e)) => panic!("Unexpected error: {}", e),
                 None => panic!("Expected more tokens, but got None"),
