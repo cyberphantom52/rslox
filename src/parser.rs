@@ -1,7 +1,7 @@
 use crate::{
     error::Error,
     lexer::Lexer,
-    token::{Atom, Literal, Op, Operator, TokenTree, TokenType, UnaryOperator},
+    token::{Atom, Keyword, Literal, Op, Operator, TokenTree, TokenType, UnaryOperator},
 };
 
 pub struct Parser<'a> {
@@ -52,9 +52,21 @@ impl<'a> Parser<'a> {
                 Literal::Identifier => TokenTree::Atom(Atom::Ident(lhs.lexeme())),
                 Literal::Number(n) => TokenTree::Atom(Atom::Number(n)),
             },
+            TokenType::Keyword(kw) => match kw {
+                Keyword::True => TokenTree::Atom(Atom::Bool(true)),
+                Keyword::False => TokenTree::Atom(Atom::Bool(false)),
+                Keyword::Nil => TokenTree::Atom(Atom::Nil),
+                Keyword::This => TokenTree::Atom(Atom::This),
+                Keyword::Super => TokenTree::Atom(Atom::Super),
+                _ => {
+                    return Err(Error::ParseError {
+                        msg: format!("Unexpected keyword {:?}", kw),
+                    });
+                }
+            },
             _ => {
                 return Err(Error::ParseError {
-                    msg: format!("Unexpected {:?}", lhs),
+                    msg: format!("Unexpected token {:?}", lhs),
                 });
             }
         };
