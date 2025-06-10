@@ -35,7 +35,15 @@ fn main() -> ExitCode {
             let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
             let lexer = rslox::Lexer::new(content.as_str());
             let mut parser = rslox::Parser::with_lexer(lexer);
-            println!("{:?}", parser.parse())
+            match parser.parse() {
+                Ok(tree) => {
+                    println!("{}", tree);
+                }
+                Err(e) => {
+                    exit_code = ExitCode::from(65);
+                    eprintln!("{}", e);
+                }
+            }
         }
     }
 
