@@ -140,8 +140,12 @@ impl Op {
         let res = match self {
             Op::Equal => (2, 1),
             // '?' => (4, 3),
-            // Op::BangEqual
-            Op::EqualEqual | Op::Less | Op::LessEqual | Op::Greater | Op::GreaterEqual => (5, 6),
+            Op::BangEqual
+            | Op::EqualEqual
+            | Op::Less
+            | Op::LessEqual
+            | Op::Greater
+            | Op::GreaterEqual => (5, 6),
             Op::Plus | Op::Minus => (7, 8),
             Op::Star | Op::Slash => (9, 10),
             Op::Dot => (14, 13),
