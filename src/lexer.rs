@@ -21,6 +21,21 @@ impl<'a> Lexer<'a> {
         self.source_code[..self.byte_offset].lines().count()
     }
 
+    pub fn expect(&mut self, expected: TokenType) -> Result<Token<'a>, Error> {
+        match self.next() {
+            Some(Ok(token)) if token.ty() == expected => Ok(token),
+            Some(Ok(token)) => Err(Error::LexingError {
+                ty: LexingError::UnexpectedToken {
+                    expected,
+                    found: token.ty(),
+                },
+                line: self.line(),
+            }),
+            Some(Err(e)) => Err(e),
+            None => Err(Error::UnexpectedEndOfInput),
+        }
+    }
+
     pub fn peek(&self) -> Option<Result<Token<'a>, Error>> {
         let mut lexer_clone = self.clone();
         lexer_clone.next()
