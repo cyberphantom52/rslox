@@ -1,7 +1,7 @@
 use crate::{
     error::Error,
     lexer::Lexer,
-    token::{Atom, Keyword, Literal, Op, Operator, TokenTree, TokenType, UnaryOperator},
+    token::{Atom, Keyword, Literal, Op, Operator, Token, TokenTree, TokenType, UnaryOperator},
 };
 
 pub struct Parser<'a> {
@@ -48,7 +48,7 @@ impl<'a> Parser<'a> {
                 }
             },
             TokenType::Literal(lit) => match lit {
-                Literal::String => TokenTree::Atom(Atom::String(lhs.lexeme())),
+                Literal::String => TokenTree::Atom(Atom::String(Token::unescape(lhs.lexeme()))),
                 Literal::Identifier => TokenTree::Atom(Atom::Ident(lhs.lexeme())),
                 Literal::Number(n) => TokenTree::Atom(Atom::Number(n)),
             },

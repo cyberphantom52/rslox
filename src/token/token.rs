@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::error::Error;
 
 use super::operator::*;
@@ -198,5 +200,9 @@ impl<'a> Token<'a> {
 
     pub fn lexeme(&self) -> &'a str {
         self.lexeme
+    }
+
+    pub fn unescape(s: &'a str) -> Cow<'a, str> {
+        Cow::Borrowed(s.trim_matches('"'))
     }
 }

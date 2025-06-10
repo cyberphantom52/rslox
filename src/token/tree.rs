@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::error::Error;
 
 use super::{BinaryOperator, Operator, UnaryOperator};
@@ -25,7 +27,7 @@ impl std::fmt::Display for TokenTree<'_> {
 
 #[derive(Debug, Clone)]
 pub enum Atom<'a> {
-    String(&'a str),
+    String(Cow<'a, str>),
     Number(f64),
     Nil,
     Bool(bool),
@@ -37,7 +39,7 @@ pub enum Atom<'a> {
 impl std::fmt::Display for Atom<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Atom::String(s) => write!(f, "\"{}\"", s),
+            Atom::String(s) => write!(f, "{}", s),
             Atom::Number(n) => {
                 if n.fract() == 0f64 {
                     write!(f, "{}.0", n)
