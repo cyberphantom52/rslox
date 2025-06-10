@@ -196,7 +196,7 @@ impl<'a> Token<'a> {
         self.ty
     }
 
-    pub fn lexeme(&self) -> &str {
-        &self.lexeme
+    pub fn lexeme(&self) -> &'a str {
+        self.lexeme
     }
 }
