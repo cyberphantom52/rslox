@@ -58,6 +58,12 @@ impl<'a> Parser<'a> {
                 Keyword::Nil => TokenTree::Atom(Atom::Nil),
                 Keyword::This => TokenTree::Atom(Atom::This),
                 Keyword::Super => TokenTree::Atom(Atom::Super),
+                Keyword::Print | Keyword::Return => {
+                    let op: Op = kw.try_into()?;
+                    let ((), r_bp) = op.prefix_binding_power();
+                    let rhs = self.parse_expr(r_bp)?;
+                    TokenTree::Cons(op, vec![rhs])
+                }
                 _ => {
                     return Err(Error::ParseError {
                         msg: format!("Unexpected keyword {:?}", kw),

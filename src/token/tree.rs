@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::error::Error;
 
-use super::{BinaryOperator, Operator, UnaryOperator};
+use super::{BinaryOperator, Keyword, Operator, UnaryOperator};
 
 #[derive(Debug, Clone)]
 pub enum TokenTree<'a> {
@@ -122,6 +122,7 @@ impl std::fmt::Display for Op {
 impl Op {
     pub fn prefix_binding_power(&self) -> ((), u8) {
         match self {
+            Op::Print | Op::Return => ((), 1),
             Op::Bang | Op::Plus | Op::Minus => ((), 11),
             _ => panic!("bad op: {:?}", self),
         }
@@ -168,6 +169,20 @@ impl TryFrom<UnaryOperator> for Op {
             UnaryOperator::Bang => Ok(Op::Bang),
             op => Err(Error::ParseError {
                 msg: format!("Unsupported unary operator: {:?}", op),
+            }),
+        }
+    }
+}
+
+impl TryFrom<Keyword> for Op {
+    type Error = Error;
+
+    fn try_from(value: Keyword) -> Result<Self, Self::Error> {
+        match value {
+            Keyword::Print => Ok(Op::Print),
+            Keyword::Return => Ok(Op::Return),
+            _ => Err(Error::ParseError {
+                msg: format!("Unsupported keyword: {:?}", value),
             }),
         }
     }
