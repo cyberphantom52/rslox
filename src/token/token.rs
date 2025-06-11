@@ -52,21 +52,28 @@ impl std::fmt::Display for Literal {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Keyword {
     And,
-    Class,
-    Else,
-    False,
-    Fun,
-    For,
-    If,
-    Nil,
     Or,
+
+    If,
+    Else,
+
+    True,
+    False,
+
+    For,
+    While,
+
+    Class,
+    Fun,
+    Var,
+
     Print,
     Return,
+
     Super,
     This,
-    True,
-    Var,
-    While,
+
+    Nil,
 }
 
 impl std::fmt::Display for Keyword {
