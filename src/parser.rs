@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
                 }
                 UnaryOperator::Bang | UnaryOperator::Minus | UnaryOperator::Plus => {
                     // Safe to unwrap as we checked the token type
-                    let op: Op = op.try_into().unwrap();
+                    let op: Op = op.try_into()?;
                     let ((), r_bp) = op.prefix_binding_power().unwrap();
                     let rhs = self.parse_expr(r_bp)?;
                     TokenTree::Cons(op, vec![rhs])
