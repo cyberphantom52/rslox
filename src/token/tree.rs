@@ -120,11 +120,11 @@ impl std::fmt::Display for Op {
 }
 
 impl Op {
-    pub fn prefix_binding_power(&self) -> ((), u8) {
+    pub fn prefix_binding_power(&self) -> Option<((), u8)> {
         match self {
-            Op::Print | Op::Return => ((), 1),
-            Op::Bang | Op::Plus | Op::Minus => ((), 11),
-            _ => panic!("bad op: {:?}", self),
+            Op::Print | Op::Return => Some(((), 1)),
+            Op::Bang | Op::Plus | Op::Minus => Some(((), 11)),
+            _ => None,
         }
     }
 

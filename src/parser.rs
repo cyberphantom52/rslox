@@ -41,8 +41,9 @@ impl<'a> Parser<'a> {
                     TokenTree::Cons(Op::Group, vec![lhs])
                 }
                 UnaryOperator::Bang | UnaryOperator::Minus | UnaryOperator::Plus => {
+                    // Safe to unwrap as we checked the token type
                     let op: Op = op.try_into().unwrap();
-                    let ((), r_bp) = op.prefix_binding_power();
+                    let ((), r_bp) = op.prefix_binding_power().unwrap();
                     let rhs = self.parse_expr(r_bp)?;
                     TokenTree::Cons(op, vec![rhs])
                 }
@@ -65,8 +66,9 @@ impl<'a> Parser<'a> {
                 Keyword::This => TokenTree::Atom(Atom::This),
                 Keyword::Super => TokenTree::Atom(Atom::Super),
                 Keyword::Print | Keyword::Return => {
+                    // Safe to unwrap as we checked the token type
                     let op: Op = kw.try_into()?;
-                    let ((), r_bp) = op.prefix_binding_power();
+                    let ((), r_bp) = op.prefix_binding_power().unwrap();
                     let rhs = self.parse_expr(r_bp)?;
                     TokenTree::Cons(op, vec![rhs])
                 }
