@@ -85,15 +85,18 @@ impl<'a> Parser<'a> {
 
         loop {
             let op: Op = match self.lexer.peek() {
-                Some(token) => match token?.ty() {
-                    TokenType::Operator(Operator::Unary(UnaryOperator::RightParen)) => break,
-                    TokenType::Operator(op) => op.try_into()?,
-                    ty => {
-                        return Err(Error::ParseError(ParseError::new(
-                            ParseErrorKind::UnexpectedToken(ty, String::new()),
-                        )));
+                Some(token) => {
+                    let token = token?;
+                    match token.ty() {
+                        TokenType::Operator(Operator::Unary(UnaryOperator::RightParen)) => break,
+                        TokenType::Operator(op) => op.try_into()?,
+                        ty => {
+                            return Err(Error::ParseError(ParseError::new(
+                                ParseErrorKind::UnexpectedToken(ty, token.lexeme().to_string()),
+                            )));
+                        }
                     }
-                },
+                }
                 _ => break,
             };
 
