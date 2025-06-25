@@ -21,7 +21,12 @@ impl<'a> Parser<'a> {
         let lhs = match self.lexer.next() {
             Some(Ok(token)) => token,
             Some(Err(e)) => return Err(e),
-            None => return Ok(TokenTree::Atom(Atom::Nil)),
+            None => {
+                return Err(Error::ParseError(ParseError::with_line(
+                    ParseErrorKind::InvalidExpression(String::new()),
+                    self.lexer.line(),
+                )));
+            }
         };
 
         let mut lhs = match lhs.ty() {
