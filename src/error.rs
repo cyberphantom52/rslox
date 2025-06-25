@@ -43,6 +43,7 @@ pub enum ParseErrorKind {
     UnexpectedOperator(Operator),
     UnexpectedKeyword(Keyword),
     UnexpectedToken(TokenType, String),
+    InvalidExpression(String),
 }
 
 impl std::fmt::Display for ParseErrorKind {
@@ -54,6 +55,9 @@ impl std::fmt::Display for ParseErrorKind {
             ParseErrorKind::UnexpectedKeyword(kw) => write!(f, "Unexpected Keyword: {kw}"),
             ParseErrorKind::UnexpectedToken(ty, lexeme) => {
                 write!(f, "Unexpected token: {ty} lexeme: {lexeme}")
+            }
+            ParseErrorKind::InvalidExpression(lexeme) => {
+                write!(f, "Error at '{lexeme}': Expect expression.")
             }
         }
     }

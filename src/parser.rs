@@ -42,8 +42,9 @@ impl<'a> Parser<'a> {
                     TokenTree::Cons(op, vec![rhs])
                 }
                 _ => {
-                    return Err(Error::ParseError(ParseError::new(
-                        ParseErrorKind::UnexpectedOperator(Operator::Unary(op)),
+                    return Err(Error::ParseError(ParseError::with_line(
+                        ParseErrorKind::InvalidExpression(lhs.lexeme().to_string()),
+                        self.lexer.line(),
                     )));
                 }
             },
