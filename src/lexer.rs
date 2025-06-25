@@ -1,8 +1,9 @@
 use crate::{
-    error::Error,
+    error::{Error, LexingError, LexingErrorKind},
     token::{Token, TokenType},
 };
 
+#[derive(Debug, Clone)]
 pub struct Lexer<'a> {
     source_code: &'a str,
     byte_offset: usize,
@@ -18,6 +19,26 @@ impl<'a> Lexer<'a> {
 
     pub fn line(&self) -> usize {
         self.source_code[..self.byte_offset].lines().count()
+    }
+
+    pub fn expect(&mut self, expected: TokenType) -> Result<Token<'a>, Error> {
+        match self.next() {
+            Some(Ok(token)) if token.ty() == expected => Ok(token),
+            Some(Ok(token)) => Err(Error::LexingError(LexingError::with_line(
+                LexingErrorKind::UnexpectedToken {
+                    expected,
+                    found: token.ty(),
+                },
+                self.line(),
+            ))),
+            Some(Err(e)) => Err(e),
+            None => Err(Error::UnexpectedEndOfInput),
+        }
+    }
+
+    pub fn peek(&self) -> Option<Result<Token<'a>, Error>> {
+        let mut lexer_clone = self.clone();
+        lexer_clone.next()
     }
 }
 
@@ -75,10 +96,10 @@ impl<'a> Iterator for Lexer<'a> {
                         self.byte_offset += end + 1;
                     } else {
                         self.byte_offset = self.source_code.len();
-                        return Some(Err(Error::LexingError {
-                            ty: crate::error::LexingError::UnterminatedString,
-                            line: self.line(),
-                        }));
+                        return Some(Err(Error::LexingError(LexingError::with_line(
+                            LexingErrorKind::UnterminatedString,
+                            self.line(),
+                        ))));
                     }
                 }
 
@@ -98,10 +119,10 @@ impl<'a> Iterator for Lexer<'a> {
                 }
 
                 _ => {
-                    return Some(Err(Error::LexingError {
-                        ty: crate::error::LexingError::UnexpectedCharacter(c),
-                        line: self.line(),
-                    }));
+                    return Some(Err(Error::LexingError(LexingError::with_line(
+                        LexingErrorKind::UnexpectedCharacter(c),
+                        self.line(),
+                    ))));
                 }
             };
 
@@ -130,16 +151,10 @@ mod test {
     fn unexpected_characters() {
         let input = "@\n#$\n%^&\n*";
         let mut lexer = Lexer::new(input);
-
         match lexer.next() {
-            Some(Err(e)) => {
-                assert!(matches!(
-                    e,
-                    Error::LexingError {
-                        ty: crate::error::LexingError::UnexpectedCharacter(_),
-                        line: 1
-                    }
-                ));
+            Some(Err(Error::LexingError(e))) => {
+                assert!(matches!(e.kind(), LexingErrorKind::UnexpectedCharacter(_)));
+                assert!(matches!(e.line(), Some(1)));
             }
             o => panic!("Expected an error for unexpected character, got: {:?}", o),
         }
@@ -217,13 +232,13 @@ mod test {
             }
         }
 
-        assert!(matches!(
-            lexer.next(),
-            Some(Err(Error::LexingError {
-                ty: crate::error::LexingError::UnterminatedString,
-                line: 1
-            }))
-        ));
+        match lexer.next() {
+            Some(Err(Error::LexingError(e))) => {
+                assert!(matches!(e.kind(), LexingErrorKind::UnterminatedString));
+                assert!(matches!(e.line(), Some(1)));
+            }
+            o => panic!("Expected an error for unterminated string, got: {:?}", o),
+        }
     }
 
     #[test]
@@ -243,7 +258,7 @@ mod test {
         for expected_type in expected_types {
             match lexer.next() {
                 Some(Ok(token)) => {
-                    assert_eq!(token.ty(), &expected_type);
+                    assert_eq!(token.ty(), expected_type);
                 }
                 Some(Err(e)) => panic!("Unexpected error: {}", e),
                 None => panic!("Expected more tokens, but got None"),
