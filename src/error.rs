@@ -131,9 +131,9 @@ impl std::fmt::Display for Error {
             }
             Error::LexingError(e) => {
                 if e.line.is_some() {
-                    format!("[line {}] {}", e.line.unwrap(), e.kind)
+                    format!("[line {}] Error: {}", e.line.unwrap(), e.kind)
                 } else {
-                    format!("{}", e.kind)
+                    format!("Error: {}", e.kind)
                 }
             }
         };
