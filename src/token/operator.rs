@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{Error, LexingError, LexingErrorKind};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UnaryOperator {
@@ -105,9 +105,9 @@ impl TryFrom<&str> for Operator {
             "==" => Ok(Operator::Binary(BinaryOperator::EqualEqual)),
             ">" => Ok(Operator::Binary(BinaryOperator::Greater)),
             ">=" => Ok(Operator::Binary(BinaryOperator::GreaterEqual)),
-            _ => Err(Error::ParseError {
-                msg: format!("Unknown operator: {}", value),
-            }),
+            _ => Err(Error::LexingError(LexingError::new(
+                LexingErrorKind::InvalidOperator(value.to_string()),
+            ))),
         }
     }
 }

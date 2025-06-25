@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::error::Error;
+use crate::error::{Error, LexingError, LexingErrorKind};
 
 use super::operator::*;
 
@@ -19,9 +19,9 @@ impl TryFrom<&str> for Literal {
             if value.ends_with('"') {
                 Ok(Literal::String)
             } else {
-                return Err(Error::ParseError {
-                    msg: format!("Unterminated string literal: {}", value),
-                });
+                return Err(Error::LexingError(LexingError::new(
+                    LexingErrorKind::UnterminatedString,
+                )));
             }
         } else if value.chars().all(|c| c.is_ascii_digit() || c == '.') {
             Ok(Literal::Number(value.parse::<f64>().unwrap()))
@@ -32,9 +32,9 @@ impl TryFrom<&str> for Literal {
                 return Ok(Literal::Identifier);
             }
 
-            Err(Error::ParseError {
-                msg: format!("Unknown literal type: {}", value),
-            })
+            Err(Error::LexingError(LexingError::new(
+                LexingErrorKind::InvalidLiteral(value.to_string()),
+            )))
         }
     }
 }
@@ -120,9 +120,9 @@ impl TryFrom<&str> for Keyword {
             "true" => Ok(Keyword::True),
             "var" => Ok(Keyword::Var),
             "while" => Ok(Keyword::While),
-            _ => Err(Error::ParseError {
-                msg: format!("Unknown keyword: {}", value),
-            }),
+            _ => Err(Error::LexingError(LexingError::new(
+                LexingErrorKind::InvalidKeyword(value.to_string()),
+            ))),
         }
     }
 }

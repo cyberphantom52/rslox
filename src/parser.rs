@@ -1,5 +1,5 @@
 use crate::{
-    error::Error,
+    error::{Error, ParseError, ParseErrorKind},
     lexer::Lexer,
     token::{Atom, Keyword, Literal, Op, Operator, Token, TokenTree, TokenType, UnaryOperator},
 };
@@ -42,9 +42,9 @@ impl<'a> Parser<'a> {
                     TokenTree::Cons(op, vec![rhs])
                 }
                 _ => {
-                    return Err(Error::ParseError {
-                        msg: format!("Unexpected {:?}", lhs),
-                    });
+                    return Err(Error::ParseError(ParseError::new(
+                        ParseErrorKind::UnexpectedOperator(Operator::Unary(op)),
+                    )));
                 }
             },
             TokenType::Literal(lit) => match lit {
@@ -65,15 +65,15 @@ impl<'a> Parser<'a> {
                     TokenTree::Cons(op, vec![rhs])
                 }
                 _ => {
-                    return Err(Error::ParseError {
-                        msg: format!("Unexpected keyword {:?}", kw),
-                    });
+                    return Err(Error::ParseError(ParseError::new(
+                        ParseErrorKind::UnexpectedKeyword(kw),
+                    )));
                 }
             },
             _ => {
-                return Err(Error::ParseError {
-                    msg: format!("Unexpected token {:?}", lhs),
-                });
+                return Err(Error::ParseError(ParseError::new(
+                    ParseErrorKind::UnexpectedToken(lhs.ty(), lhs.lexeme().to_string()),
+                )));
             }
         };
 
@@ -83,9 +83,9 @@ impl<'a> Parser<'a> {
                     TokenType::Operator(Operator::Unary(UnaryOperator::RightParen)) => break,
                     TokenType::Operator(op) => op.try_into()?,
                     ty => {
-                        return Err(Error::ParseError {
-                            msg: format!("Unexpected {:?}", ty),
-                        });
+                        return Err(Error::ParseError(ParseError::new(
+                            ParseErrorKind::UnexpectedToken(ty, String::new()),
+                        )));
                     }
                 },
                 _ => break,

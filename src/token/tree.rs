@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::error::Error;
+use crate::error::{Error, ParseError, ParseErrorKind};
 
 use super::{BinaryOperator, Keyword, Operator, UnaryOperator};
 
@@ -167,9 +167,9 @@ impl TryFrom<UnaryOperator> for Op {
             UnaryOperator::Star => Ok(Op::Star),
             UnaryOperator::Slash => Ok(Op::Slash),
             UnaryOperator::Bang => Ok(Op::Bang),
-            op => Err(Error::ParseError {
-                msg: format!("Unsupported unary operator: {:?}", op),
-            }),
+            op => Err(Error::ParseError(ParseError::new(
+                ParseErrorKind::UnsupportedOperator(Operator::Unary(op)),
+            ))),
         }
     }
 }
@@ -181,9 +181,9 @@ impl TryFrom<Keyword> for Op {
         match value {
             Keyword::Print => Ok(Op::Print),
             Keyword::Return => Ok(Op::Return),
-            _ => Err(Error::ParseError {
-                msg: format!("Unsupported keyword: {:?}", value),
-            }),
+            _ => Err(Error::ParseError(ParseError::new(
+                ParseErrorKind::UnsupportedKeyword(value),
+            ))),
         }
     }
 }
