@@ -18,14 +18,19 @@ impl<'a> Parser<'a> {
 
     pub fn parse(&mut self) -> Result<TokenTree<'a>, Error> {
         let mut stmts = Vec::new();
-        let stmt = self.parse_stmt()?;
-        stmts.push(stmt);
+        while let Some(_) = self.lexer.peek() {
+            let stmt = self.parse_stmt()?;
+            stmts.push(stmt);
+        }
         Ok(TokenTree(stmts))
     }
 
+    // TODO: Implement parsing for items (functions, classes, etc.)
     fn parse_stmt(&mut self) -> Result<Stmt<'a>, Error> {
         let expr = self.parse_expr(0)?;
-        // self.lexer.expect(Semicolon)
+        self.lexer.expect(TokenType::Operator(Operator::Unary(
+            UnaryOperator::Selmicolon,
+        )))?;
         Ok(Stmt::Expr(expr))
     }
 
@@ -108,7 +113,9 @@ impl<'a> Parser<'a> {
                 Some(token) => {
                     let token = token?;
                     match token.ty() {
-                        TokenType::Operator(Operator::Unary(UnaryOperator::RightParen)) => break,
+                        TokenType::Operator(Operator::Unary(
+                            UnaryOperator::RightParen | UnaryOperator::Selmicolon,
+                        )) => break,
                         TokenType::Operator(op) => op.try_into()?,
                         ty => {
                             return Err(Error::ParseError(ParseError::new(
