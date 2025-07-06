@@ -1,7 +1,10 @@
 use crate::{
     error::{Error, ParseError, ParseErrorKind},
     lexer::Lexer,
-    token::{Atom, Keyword, Literal, Op, Operator, Token, TokenTree, TokenType, UnaryOperator},
+    token::{
+        Atom, Expr, Keyword, Literal, Op, Operator, Stmt, Token, TokenTree, TokenType,
+        UnaryOperator,
+    },
 };
 
 pub struct Parser<'a> {
@@ -14,10 +17,19 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Result<TokenTree<'a>, Error> {
-        self.parse_expr(0)
+        let mut stmts = Vec::new();
+        let stmt = self.parse_stmt()?;
+        stmts.push(stmt);
+        Ok(TokenTree(stmts))
     }
 
-    fn parse_expr(&mut self, min_bp: u8) -> Result<TokenTree<'a>, Error> {
+    fn parse_stmt(&mut self) -> Result<Stmt<'a>, Error> {
+        let expr = self.parse_expr(0)?;
+        // self.lexer.expect(Semicolon)
+        Ok(Stmt::Expr(expr))
+    }
+
+    fn parse_expr(&mut self, min_bp: u8) -> Result<Expr<'a>, Error> {
         let lhs = match self.lexer.next() {
             Some(Ok(token)) => token,
             Some(Err(e)) => return Err(e),
@@ -30,6 +42,33 @@ impl<'a> Parser<'a> {
         };
 
         let mut lhs = match lhs.ty() {
+            TokenType::Literal(lit) => match lit {
+                Literal::String => Expr::Atom(Atom::String(Token::unescape(lhs.lexeme()))),
+                Literal::Identifier => Expr::Atom(Atom::Ident(lhs.lexeme())),
+                Literal::Number(n) => Expr::Atom(Atom::Number(n)),
+            },
+            TokenType::Keyword(kw) => match kw {
+                Keyword::True => Expr::Atom(Atom::Bool(true)),
+                Keyword::False => Expr::Atom(Atom::Bool(false)),
+                Keyword::Nil => Expr::Atom(Atom::Nil),
+                Keyword::This => Expr::Atom(Atom::This),
+                Keyword::Super => Expr::Atom(Atom::Super),
+                Keyword::Print | Keyword::Return => {
+                    // Safe to unwrap as we checked the token type
+                    let op: Op = kw.try_into()?;
+                    let ((), r_bp) = op.prefix_binding_power().unwrap();
+                    let rhs = self.parse_expr(r_bp)?;
+                    Expr::Unary {
+                        op,
+                        expr: Box::new(rhs),
+                    }
+                }
+                _ => {
+                    return Err(Error::ParseError(ParseError::new(
+                        ParseErrorKind::UnexpectedKeyword(kw),
+                    )));
+                }
+            },
             TokenType::Operator(Operator::Unary(op)) => match op {
                 UnaryOperator::LeftParen => {
                     let lhs = self.parse_expr(0)?;
@@ -38,43 +77,22 @@ impl<'a> Parser<'a> {
                         UnaryOperator::RightParen,
                     )))?;
 
-                    TokenTree::Cons(Op::Group, vec![lhs])
+                    Expr::Group(Box::new(lhs))
                 }
                 UnaryOperator::Bang | UnaryOperator::Minus | UnaryOperator::Plus => {
                     // Safe to unwrap as we checked the token type
                     let op: Op = op.try_into()?;
                     let ((), r_bp) = op.prefix_binding_power().unwrap();
                     let rhs = self.parse_expr(r_bp)?;
-                    TokenTree::Cons(op, vec![rhs])
+                    Expr::Unary {
+                        op,
+                        expr: Box::new(rhs),
+                    }
                 }
                 _ => {
                     return Err(Error::ParseError(ParseError::with_line(
                         ParseErrorKind::InvalidExpression(lhs.lexeme().to_string()),
                         self.lexer.line(),
-                    )));
-                }
-            },
-            TokenType::Literal(lit) => match lit {
-                Literal::String => TokenTree::Atom(Atom::String(Token::unescape(lhs.lexeme()))),
-                Literal::Identifier => TokenTree::Atom(Atom::Ident(lhs.lexeme())),
-                Literal::Number(n) => TokenTree::Atom(Atom::Number(n)),
-            },
-            TokenType::Keyword(kw) => match kw {
-                Keyword::True => TokenTree::Atom(Atom::Bool(true)),
-                Keyword::False => TokenTree::Atom(Atom::Bool(false)),
-                Keyword::Nil => TokenTree::Atom(Atom::Nil),
-                Keyword::This => TokenTree::Atom(Atom::This),
-                Keyword::Super => TokenTree::Atom(Atom::Super),
-                Keyword::Print | Keyword::Return => {
-                    // Safe to unwrap as we checked the token type
-                    let op: Op = kw.try_into()?;
-                    let ((), r_bp) = op.prefix_binding_power().unwrap();
-                    let rhs = self.parse_expr(r_bp)?;
-                    TokenTree::Cons(op, vec![rhs])
-                }
-                _ => {
-                    return Err(Error::ParseError(ParseError::new(
-                        ParseErrorKind::UnexpectedKeyword(kw),
                     )));
                 }
             },
@@ -108,7 +126,10 @@ impl<'a> Parser<'a> {
                 }
                 self.lexer.next();
 
-                lhs = TokenTree::Cons(op, vec![lhs]);
+                lhs = Expr::Unary {
+                    op,
+                    expr: Box::new(lhs),
+                };
                 continue;
             }
 
@@ -120,7 +141,11 @@ impl<'a> Parser<'a> {
 
                 let rhs = self.parse_expr(r_bp)?;
 
-                lhs = TokenTree::Cons(op, vec![lhs, rhs]);
+                lhs = Expr::Binary {
+                    left: Box::new(lhs),
+                    op,
+                    right: Box::new(rhs),
+                };
                 continue;
             }
 

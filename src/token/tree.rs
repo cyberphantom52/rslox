@@ -5,23 +5,99 @@ use crate::error::{Error, ParseError, ParseErrorKind};
 use super::{BinaryOperator, Keyword, Operator, UnaryOperator};
 
 #[derive(Debug, Clone)]
-pub enum TokenTree<'a> {
+pub struct TokenTree<'a>(pub Vec<Stmt<'a>>);
+
+#[derive(Debug, Clone)]
+pub enum Stmt<'a> {
+    Item(Item<'a>),
+    Expr(Expr<'a>),
+}
+
+impl std::fmt::Display for Stmt<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stmt::Item(item) => write!(f, "{}", item),
+            Stmt::Expr(expr) => write!(f, "{}", expr),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Expr<'a> {
     Atom(Atom<'a>),
-    Cons(Op, Vec<TokenTree<'a>>),
+    Binary {
+        left: Box<Expr<'a>>,
+        op: Op,
+        right: Box<Expr<'a>>,
+    },
+    Unary {
+        op: Op,
+        expr: Box<Expr<'a>>,
+    },
+    Group(Box<Expr<'a>>),
+    Block {
+        stmts: Vec<Stmt<'a>>,
+    },
+}
+
+impl std::fmt::Display for Expr<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expr::Atom(atom) => write!(f, "{}", atom),
+            Expr::Binary { left, op, right } => write!(f, "({} {} {})", left, op, right),
+            Expr::Unary { op, expr } => write!(f, "({} {})", op, expr),
+            Expr::Group(expr) => write!(f, "(group {})", expr),
+            Expr::Block { stmts } => {
+                write!(f, "{{")?;
+                for stmt in stmts {
+                    write!(f, " {}", stmt)?;
+                }
+                write!(f, " }}")
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Item<'a> {
+    Struct {
+        name: &'a str,
+        fields: Vec<(&'a str, TokenTree<'a>)>,
+    },
+    Function {
+        name: &'a str,
+        params: Vec<(&'a str, TokenTree<'a>)>,
+        body: TokenTree<'a>,
+    },
+}
+
+impl std::fmt::Display for Item<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Item::Struct { name, fields } => {
+                write!(f, "struct {} {{", name)?;
+                for (field_name, field_type) in fields {
+                    write!(f, " {}: {},", field_name, field_type)?;
+                }
+                write!(f, " }}")
+            }
+            Item::Function { name, params, body } => {
+                write!(f, "fn {}(", name)?;
+                for (param_name, param_type) in params {
+                    write!(f, "{}: {}, ", param_name, param_type)?;
+                }
+                write!(f, ") -> {} {{ {} }}", body, body)
+            }
+        }
+    }
 }
 
 impl std::fmt::Display for TokenTree<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TokenTree::Atom(atom) => write!(f, "{}", atom),
-            TokenTree::Cons(op, children) => {
-                write!(f, "({}", op)?;
-                for s in children {
-                    write!(f, " {}", s)?
-                }
-                write!(f, ")")
-            }
+        for stmt in &self.0 {
+            write!(f, "{}\n", stmt)?;
         }
+        Ok(())
     }
 }
 
