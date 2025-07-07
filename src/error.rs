@@ -7,6 +7,19 @@ pub enum Error {
     UnexpectedEndOfInput,
     ParseError(ParseError),
     LexingError(LexingError),
+    RuntimeError(RuntimeError),
+}
+
+impl Error {
+    pub fn line(mut self, line: usize) -> Self {
+        match self {
+            Error::ParseError(ref mut e) => e.line = Some(line),
+            Error::LexingError(ref mut e) => e.line = Some(line),
+            Error::RuntimeError(ref mut e) => e.line = Some(line),
+            _ => {}
+        }
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -118,6 +131,48 @@ impl std::fmt::Display for LexingErrorKind {
     }
 }
 
+#[derive(Debug)]
+pub struct RuntimeError {
+    kind: RuntimeErrorKind,
+    line: Option<usize>,
+}
+
+impl RuntimeError {
+    pub fn new(kind: RuntimeErrorKind) -> Self {
+        Self { kind, line: None }
+    }
+
+    pub fn kind(&self) -> &RuntimeErrorKind {
+        &self.kind
+    }
+
+    pub fn line(&self) -> Option<usize> {
+        self.line
+    }
+
+    pub fn with_line(kind: RuntimeErrorKind, line: usize) -> Self {
+        Self {
+            kind,
+            line: Some(line),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum RuntimeErrorKind {
+    DivisionByZero,
+    InvalidOperand(String),
+}
+
+impl std::fmt::Display for RuntimeErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RuntimeErrorKind::DivisionByZero => write!(f, "Division by zero error."),
+            RuntimeErrorKind::InvalidOperand(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self {
@@ -134,6 +189,13 @@ impl std::fmt::Display for Error {
                     format!("[line {}] Error: {}", e.line.unwrap(), e.kind)
                 } else {
                     format!("Error: {}", e.kind)
+                }
+            }
+            Error::RuntimeError(e) => {
+                if e.line.is_some() {
+                    format!("[line {}] Runtime Error: {}", e.line.unwrap(), e.kind)
+                } else {
+                    format!("Runtime Error: {}", e.kind)
                 }
             }
         };
