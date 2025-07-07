@@ -1,3 +1,5 @@
+use miette::SourceSpan;
+
 use crate::{
     error::{Error, ParseError, ParseErrorKind},
     lexer::Lexer,
@@ -12,6 +14,10 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    pub fn lexer(&self) -> &Lexer<'a> {
+        &self.lexer
+    }
+
     pub fn with_lexer(lexer: Lexer<'a>) -> Self {
         Self { lexer }
     }
@@ -39,9 +45,10 @@ impl<'a> Parser<'a> {
             Some(Ok(token)) => token,
             Some(Err(e)) => return Err(e),
             None => {
-                return Err(Error::ParseError(ParseError::with_line(
+                return Err(Error::ParseError(ParseError::new(
+                    self.lexer.source_code().to_string(),
                     ParseErrorKind::InvalidExpression(String::new()),
-                    self.lexer.line(),
+                    SourceSpan::new(0.into(), 0),
                 )));
             }
         };
@@ -60,7 +67,13 @@ impl<'a> Parser<'a> {
                 Keyword::Super => Expr::Atom(Atom::Super),
                 Keyword::Print | Keyword::Return => {
                     // Safe to unwrap as we checked the token type
-                    let op: Op = kw.try_into()?;
+                    let op: Op = kw.try_into().map_err(|kind| {
+                        Error::ParseError(ParseError::new(
+                            self.lexer().source_code().to_string(),
+                            kind,
+                            lhs.span(),
+                        ))
+                    })?;
                     let ((), r_bp) = op.prefix_binding_power().unwrap();
                     let rhs = self.parse_expr(r_bp)?;
                     Expr::Unary {
@@ -70,7 +83,9 @@ impl<'a> Parser<'a> {
                 }
                 _ => {
                     return Err(Error::ParseError(ParseError::new(
+                        self.lexer().source_code().to_string(),
                         ParseErrorKind::UnexpectedKeyword(kw),
+                        lhs.span(),
                     )));
                 }
             },
@@ -86,7 +101,13 @@ impl<'a> Parser<'a> {
                 }
                 UnaryOperator::Bang | UnaryOperator::Minus | UnaryOperator::Plus => {
                     // Safe to unwrap as we checked the token type
-                    let op: Op = op.try_into()?;
+                    let op: Op = op.try_into().map_err(|kind| {
+                        Error::ParseError(ParseError::new(
+                            self.lexer().source_code().to_string(),
+                            kind,
+                            lhs.span(),
+                        ))
+                    })?;
                     let ((), r_bp) = op.prefix_binding_power().unwrap();
                     let rhs = self.parse_expr(r_bp)?;
                     Expr::Unary {
@@ -95,15 +116,18 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
-                    return Err(Error::ParseError(ParseError::with_line(
+                    return Err(Error::ParseError(ParseError::new(
+                        self.lexer().source_code().to_string(),
                         ParseErrorKind::InvalidExpression(lhs.lexeme().to_string()),
-                        self.lexer.line(),
+                        lhs.span(),
                     )));
                 }
             },
             _ => {
                 return Err(Error::ParseError(ParseError::new(
+                    self.lexer().source_code().to_string(),
                     ParseErrorKind::UnexpectedToken(lhs.ty(), lhs.lexeme().to_string()),
+                    lhs.span(),
                 )));
             }
         };
@@ -116,10 +140,18 @@ impl<'a> Parser<'a> {
                         TokenType::Operator(Operator::Unary(
                             UnaryOperator::RightParen | UnaryOperator::Selmicolon,
                         )) => break,
-                        TokenType::Operator(op) => op.try_into()?,
+                        TokenType::Operator(op) => op.try_into().map_err(|kind| {
+                            Error::ParseError(ParseError::new(
+                                self.lexer().source_code().to_string(),
+                                kind,
+                                token.span(),
+                            ))
+                        })?,
                         ty => {
                             return Err(Error::ParseError(ParseError::new(
+                                self.lexer().source_code().to_string(),
                                 ParseErrorKind::UnexpectedToken(ty, token.lexeme().to_string()),
+                                token.span(),
                             )));
                         }
                     }
