@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use rslox::Interpreter;
 use std::{path::PathBuf, process::ExitCode};
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -11,6 +12,7 @@ struct Args {
 enum Command {
     Tokenize { filename: PathBuf },
     Parse { filename: PathBuf },
+    Evaluate { filename: PathBuf },
 }
 
 fn main() -> ExitCode {
@@ -39,6 +41,19 @@ fn main() -> ExitCode {
                 Ok(tree) => {
                     println!("{}", tree);
                 }
+                Err(e) => {
+                    exit_code = ExitCode::from(65);
+                    eprintln!("{}", e);
+                }
+            }
+        }
+        Command::Evaluate { filename } => {
+            let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
+            let lexer = rslox::Lexer::new(content.as_str());
+            let parser = rslox::Parser::with_lexer(lexer);
+            let mut interpreter = Interpreter::with_parser(parser);
+            match interpreter.interpret() {
+                Ok(_) => {}
                 Err(e) => {
                     exit_code = ExitCode::from(65);
                     eprintln!("{}", e);
