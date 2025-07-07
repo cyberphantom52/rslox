@@ -44,7 +44,7 @@ impl std::fmt::Display for Expr<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Expr::Atom(atom) => write!(f, "{}", atom),
-            Expr::Binary { left, op, right } => write!(f, "({} {} {})", left, op, right),
+            Expr::Binary { left, op, right } => write!(f, "({} {} {})", op, left, right),
             Expr::Unary { op, expr } => write!(f, "({} {})", op, expr),
             Expr::Group(expr) => write!(f, "(group {})", expr),
             Expr::Block { stmts } => {
