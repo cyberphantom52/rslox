@@ -112,6 +112,104 @@ pub enum Atom<'a> {
     This,
 }
 
+impl<'a> std::ops::Add for Atom<'a> {
+    type Output = Atom<'a>;
+
+    fn add(self, other: Atom<'_>) -> Atom<'_> {
+        match (self, other) {
+            (Atom::String(s1), Atom::String(s2)) => {
+                Atom::String(Cow::Owned(format!("{}{}", s1, s2)))
+            }
+            (Atom::Number(n1), Atom::Number(n2)) => Atom::Number(n1 + n2),
+            _ => Atom::Nil,
+        }
+    }
+}
+
+impl<'a> std::ops::Sub for Atom<'a> {
+    type Output = Atom<'a>;
+
+    fn sub(self, other: Atom<'_>) -> Atom<'_> {
+        match (self, other) {
+            (Atom::Number(n1), Atom::Number(n2)) => Atom::Number(n1 - n2),
+            _ => Atom::Nil,
+        }
+    }
+}
+
+impl<'a> std::ops::Mul for Atom<'a> {
+    type Output = Atom<'a>;
+
+    fn mul(self, other: Atom<'_>) -> Atom<'_> {
+        match (self, other) {
+            (Atom::Number(n1), Atom::Number(n2)) => Atom::Number(n1 * n2),
+            _ => Atom::Nil,
+        }
+    }
+}
+
+impl<'a> std::ops::Div for Atom<'a> {
+    type Output = Atom<'a>;
+
+    fn div(self, other: Atom<'_>) -> Atom<'_> {
+        match (self, other) {
+            (Atom::Number(n1), Atom::Number(n2)) => {
+                if n2 == 0.0 {
+                    Atom::Nil
+                } else {
+                    Atom::Number(n1 / n2)
+                }
+            }
+            _ => Atom::Nil,
+        }
+    }
+}
+
+impl<'a> std::ops::Neg for Atom<'a> {
+    type Output = Atom<'a>;
+
+    fn neg(self) -> Atom<'a> {
+        match self {
+            Atom::Number(n) => Atom::Number(-n),
+            _ => Atom::Nil,
+        }
+    }
+}
+
+impl<'a> std::ops::Not for Atom<'a> {
+    type Output = Atom<'a>;
+
+    fn not(self) -> Atom<'a> {
+        match self {
+            Atom::Bool(b) => Atom::Bool(!b),
+            _ => Atom::Nil,
+        }
+    }
+}
+
+impl<'a> std::cmp::PartialEq for Atom<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Atom::String(s1), Atom::String(s2)) => s1 == s2,
+            (Atom::Number(n1), Atom::Number(n2)) => n1 == n2,
+            (Atom::Nil, Atom::Nil) => true,
+            (Atom::Bool(b1), Atom::Bool(b2)) => b1 == b2,
+            (Atom::Ident(i1), Atom::Ident(i2)) => i1 == i2,
+            _ => false,
+        }
+    }
+}
+
+impl<'a> std::cmp::PartialOrd for Atom<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Atom::Number(n1), Atom::Number(n2)) => n1.partial_cmp(n2),
+            (Atom::String(s1), Atom::String(s2)) => s1.partial_cmp(s2),
+            _ => None,
+        }
+    }
+}
+
 impl std::fmt::Display for Atom<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
