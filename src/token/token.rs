@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use miette::SourceSpan;
+
 use crate::error::{Error, LexingError, LexingErrorKind};
 
 use super::operator::*;
@@ -164,6 +166,7 @@ impl From<&str> for TokenType {
 pub struct Token<'a> {
     ty: TokenType,
     lexeme: &'a str,
+    span: SourceSpan,
 }
 
 impl std::fmt::Display for Token<'_> {
@@ -197,8 +200,9 @@ impl std::fmt::Display for Token<'_> {
 }
 
 impl<'a> Token<'a> {
-    pub fn new(ty: TokenType, lexeme: &'a str) -> Self {
-        Self { ty, lexeme }
+    pub fn new(ty: TokenType, lexeme: &'a str, offset: usize) -> Self {
+        let span = SourceSpan::new(offset.into(), lexeme.len());
+        Self { ty, lexeme, span }
     }
 
     pub fn ty(&self) -> TokenType {
