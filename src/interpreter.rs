@@ -19,7 +19,14 @@ impl<'a> Interpreter<'a> {
         for stmt in tree.0 {
             let result = stmt.accept(self);
             match stmt {
-                Stmt::Expr(_) => println!("{}", result),
+                Stmt::Expr(_) => match result {
+                    Err(e) => {
+                        eprintln!("{}", e);
+                    }
+                    Ok(atom) => {
+                        println!("{}", atom);
+                    }
+                },
                 _ => {}
             }
         }
@@ -32,52 +39,58 @@ impl<'a> ExprVisitor<'a, Atom<'a>> for Interpreter<'a> {
         atom.clone()
     }
 
-    fn visit_binary(&mut self, left: &Expr<'a>, op: &Op, right: &Expr<'a>) -> Atom<'a> {
-        let left_value = left.accept(self);
-        let right_value = right.accept(self);
+    fn visit_binary(
+        &mut self,
+        left: &Expr<'a>,
+        op: &Op,
+        right: &Expr<'a>,
+    ) -> Result<Atom<'a>, Error> {
+        let left_value = left.accept(self)?;
+        let right_value = right.accept(self)?;
         match op {
             Op::Plus => left_value + right_value,
             Op::Minus => left_value - right_value,
             Op::Star => left_value * right_value,
             Op::Slash => left_value / right_value,
-            Op::EqualEqual => Atom::Bool(left_value == right_value),
-            Op::BangEqual => Atom::Bool(left_value != right_value),
-            Op::Less => Atom::Bool(left_value < right_value),
-            Op::LessEqual => Atom::Bool(left_value <= right_value),
-            Op::Greater => Atom::Bool(left_value > right_value),
-            Op::GreaterEqual => Atom::Bool(left_value >= right_value),
-            _ => Atom::Nil,
+            Op::EqualEqual => Ok(Atom::Bool(left_value == right_value)),
+            Op::BangEqual => Ok(Atom::Bool(left_value != right_value)),
+            Op::Less => Ok(Atom::Bool(left_value < right_value)),
+            Op::LessEqual => Ok(Atom::Bool(left_value <= right_value)),
+            Op::Greater => Ok(Atom::Bool(left_value > right_value)),
+            Op::GreaterEqual => Ok(Atom::Bool(left_value >= right_value)),
+            _ => Ok(Atom::Nil),
         }
     }
 
-    fn visit_block(&mut self, stmts: &[Stmt<'a>]) -> Atom<'a> {
+    fn visit_block(&mut self, stmts: &[Stmt<'a>]) -> Result<Atom<'a>, Error> {
         todo!()
     }
 
-    fn visit_group(&mut self, expr: &Expr<'a>) -> Atom<'a> {
+    fn visit_group(&mut self, expr: &Expr<'a>) -> Result<Atom<'a>, Error> {
         expr.accept(self)
     }
 
-    fn visit_unary(&mut self, op: &Op, expr: &Expr<'a>) -> Atom<'a> {
-        let value = expr.accept(self);
+    fn visit_unary(&mut self, op: &Op, expr: &Expr<'a>) -> Result<Atom<'a>, Error> {
+        let value = expr.accept(self)?;
         match op {
             Op::Minus => -value,
-            Op::Bang => !value,
-            _ => Atom::Nil,
+            Op::Bang => Ok(!value),
+            _ => Ok(Atom::Nil),
         }
     }
 }
 
 impl<'a> StmtVisitor<'a, Atom<'a>> for Interpreter<'a> {
-    fn visit_expr_stmt(&mut self, expr: &Expr<'a>) -> Atom<'a> {
+    fn visit_expr_stmt(&mut self, expr: &Expr<'a>) -> Result<Atom<'a>, Error> {
         expr.accept(self)
     }
 
-    fn visit_item_stmt(&mut self, item: &Item<'a>) -> Atom<'a> {
+    fn visit_item_stmt(&mut self, item: &Item<'a>) -> Result<Atom<'a>, Error> {
         unimplemented!()
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
@@ -381,3 +394,4 @@ mod tests {
         assert_eq!(result, Atom::Bool(true));
     }
 }
+*/

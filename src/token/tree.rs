@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::error::{Error, ParseError, ParseErrorKind};
+use crate::error::{Error, ParseError, ParseErrorKind, RuntimeError, RuntimeErrorKind};
 
 use super::{BinaryOperator, Keyword, Operator, UnaryOperator};
 
@@ -113,65 +113,75 @@ pub enum Atom<'a> {
 }
 
 impl<'a> std::ops::Add for Atom<'a> {
-    type Output = Atom<'a>;
+    type Output = Result<Atom<'a>, Error>;
 
-    fn add(self, other: Atom<'_>) -> Atom<'_> {
+    fn add(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
             (Atom::String(s1), Atom::String(s2)) => {
-                Atom::String(Cow::Owned(format!("{}{}", s1, s2)))
+                Ok(Atom::String(Cow::Owned(format!("{}{}", s1, s2))))
             }
-            (Atom::Number(n1), Atom::Number(n2)) => Atom::Number(n1 + n2),
-            _ => Atom::Nil,
+            (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 + n2)),
+            _ => Err(Error::RuntimeError(RuntimeError::new(
+                RuntimeErrorKind::InvalidOperand(
+                    "Operands must be two numbers or two strings.".to_string(),
+                ),
+            ))),
         }
     }
 }
 
 impl<'a> std::ops::Sub for Atom<'a> {
-    type Output = Atom<'a>;
+    type Output = Result<Atom<'a>, Error>;
 
-    fn sub(self, other: Atom<'_>) -> Atom<'_> {
+    fn sub(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
-            (Atom::Number(n1), Atom::Number(n2)) => Atom::Number(n1 - n2),
-            _ => Atom::Nil,
+            (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 - n2)),
+            _ => Err(Error::RuntimeError(RuntimeError::new(
+                RuntimeErrorKind::InvalidOperand("Operands must be numbers".to_string()),
+            ))),
         }
     }
 }
 
 impl<'a> std::ops::Mul for Atom<'a> {
-    type Output = Atom<'a>;
+    type Output = Result<Atom<'a>, Error>;
 
-    fn mul(self, other: Atom<'_>) -> Atom<'_> {
+    fn mul(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
-            (Atom::Number(n1), Atom::Number(n2)) => Atom::Number(n1 * n2),
-            _ => Atom::Nil,
+            (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 * n2)),
+            _ => Err(Error::RuntimeError(RuntimeError::new(
+                RuntimeErrorKind::InvalidOperand("Operands must be numbers".to_string()),
+            ))),
         }
     }
 }
 
 impl<'a> std::ops::Div for Atom<'a> {
-    type Output = Atom<'a>;
+    type Output = Result<Atom<'a>, Error>;
 
-    fn div(self, other: Atom<'_>) -> Atom<'_> {
+    fn div(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
-            (Atom::Number(n1), Atom::Number(n2)) => {
-                if n2 == 0.0 {
-                    Atom::Nil
-                } else {
-                    Atom::Number(n1 / n2)
-                }
-            }
-            _ => Atom::Nil,
+            (Atom::Number(n1), Atom::Number(n2)) => Ok(if n2 == 0.0 {
+                Atom::Nil
+            } else {
+                Atom::Number(n1 / n2)
+            }),
+            _ => Err(Error::RuntimeError(RuntimeError::new(
+                RuntimeErrorKind::InvalidOperand("Operands must be numbers".to_string()),
+            ))),
         }
     }
 }
 
 impl<'a> std::ops::Neg for Atom<'a> {
-    type Output = Atom<'a>;
+    type Output = Result<Atom<'a>, Error>;
 
-    fn neg(self) -> Atom<'a> {
+    fn neg(self) -> Self::Output {
         match self {
-            Atom::Number(n) => Atom::Number(-n),
-            _ => Atom::Nil,
+            Atom::Number(n) => Ok(Atom::Number(-n)),
+            _ => Err(Error::RuntimeError(RuntimeError::new(
+                RuntimeErrorKind::InvalidOperand(format!("Operand must be a number.")),
+            ))),
         }
     }
 }
