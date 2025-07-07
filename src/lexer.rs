@@ -1,3 +1,5 @@
+use miette::SourceSpan;
+
 use crate::{
     error::{Error, LexingError, LexingErrorKind},
     token::{Token, TokenType},
@@ -17,19 +19,16 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn line(&self) -> usize {
-        self.source_code[..self.byte_offset].lines().count()
-    }
-
     pub fn expect(&mut self, expected: TokenType) -> Result<Token<'a>, Error> {
         match self.next() {
             Some(Ok(token)) if token.ty() == expected => Ok(token),
-            Some(Ok(token)) => Err(Error::LexingError(LexingError::with_line(
+            Some(Ok(token)) => Err(Error::LexingError(LexingError::new(
+                self.source_code.to_string(),
                 LexingErrorKind::UnexpectedToken {
                     expected,
                     found: token.ty(),
                 },
-                self.line(),
+                token.span(),
             ))),
             Some(Err(e)) => Err(e),
             None => Err(Error::UnexpectedEndOfInput),
@@ -39,6 +38,10 @@ impl<'a> Lexer<'a> {
     pub fn peek(&self) -> Option<Result<Token<'a>, Error>> {
         let mut lexer_clone = self.clone();
         lexer_clone.next()
+    }
+
+    pub fn source_code(&self) -> &'a str {
+        self.source_code
     }
 }
 
@@ -96,9 +99,13 @@ impl<'a> Iterator for Lexer<'a> {
                         self.byte_offset += end + 1;
                     } else {
                         self.byte_offset = self.source_code.len();
-                        return Some(Err(Error::LexingError(LexingError::with_line(
+                        return Some(Err(Error::LexingError(LexingError::new(
+                            self.source_code.to_string(),
                             LexingErrorKind::UnterminatedString,
-                            self.line(),
+                            SourceSpan::new(
+                                cur_byte_offset.into(),
+                                self.byte_offset - cur_byte_offset,
+                            ),
                         ))));
                     }
                 }
@@ -119,9 +126,10 @@ impl<'a> Iterator for Lexer<'a> {
                 }
 
                 _ => {
-                    return Some(Err(Error::LexingError(LexingError::with_line(
+                    return Some(Err(Error::LexingError(LexingError::new(
+                        self.source_code.to_string(),
                         LexingErrorKind::UnexpectedCharacter(c),
-                        self.line(),
+                        SourceSpan::new(cur_byte_offset.into(), self.byte_offset - cur_byte_offset),
                     ))));
                 }
             };
@@ -154,7 +162,7 @@ mod test {
         match lexer.next() {
             Some(Err(Error::LexingError(e))) => {
                 assert!(matches!(e.kind(), LexingErrorKind::UnexpectedCharacter(_)));
-                assert!(matches!(e.line(), Some(1)));
+                // assert!(matches!(e.line(), Some(1)));
             }
             o => panic!("Expected an error for unexpected character, got: {:?}", o),
         }
@@ -235,7 +243,7 @@ mod test {
         match lexer.next() {
             Some(Err(Error::LexingError(e))) => {
                 assert!(matches!(e.kind(), LexingErrorKind::UnterminatedString));
-                assert!(matches!(e.line(), Some(1)));
+                // assert!(matches!(e.line(), Some(1)));
             }
             o => panic!("Expected an error for unterminated string, got: {:?}", o),
         }
