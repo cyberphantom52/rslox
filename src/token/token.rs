@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use miette::SourceSpan;
 
-use crate::error::{Error, LexingError, LexingErrorKind};
+use crate::error::LexingErrorKind;
 
 use super::operator::*;
 
@@ -14,16 +14,14 @@ pub enum Literal {
 }
 
 impl TryFrom<&str> for Literal {
-    type Error = Error;
+    type Error = LexingErrorKind;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.starts_with('"') {
             if value.ends_with('"') {
                 Ok(Literal::String)
             } else {
-                return Err(Error::LexingError(LexingError::new(
-                    LexingErrorKind::UnterminatedString,
-                )));
+                return Err(LexingErrorKind::UnterminatedString);
             }
         } else if value.chars().all(|c| c.is_ascii_digit() || c == '.') {
             Ok(Literal::Number(value.parse::<f64>().unwrap()))
@@ -34,9 +32,7 @@ impl TryFrom<&str> for Literal {
                 return Ok(Literal::Identifier);
             }
 
-            Err(Error::LexingError(LexingError::new(
-                LexingErrorKind::InvalidLiteral(value.to_string()),
-            )))
+            Err(LexingErrorKind::InvalidLiteral(value.to_string()))
         }
     }
 }
@@ -102,7 +98,7 @@ impl std::fmt::Display for Keyword {
 }
 
 impl TryFrom<&str> for Keyword {
-    type Error = Error;
+    type Error = LexingErrorKind;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
@@ -122,9 +118,7 @@ impl TryFrom<&str> for Keyword {
             "true" => Ok(Keyword::True),
             "var" => Ok(Keyword::Var),
             "while" => Ok(Keyword::While),
-            _ => Err(Error::LexingError(LexingError::new(
-                LexingErrorKind::InvalidKeyword(value.to_string()),
-            ))),
+            _ => Err(LexingErrorKind::InvalidKeyword(value.to_string())),
         }
     }
 }
@@ -211,6 +205,10 @@ impl<'a> Token<'a> {
 
     pub fn lexeme(&self) -> &'a str {
         self.lexeme
+    }
+
+    pub fn span(&self) -> SourceSpan {
+        self.span
     }
 
     pub fn unescape(s: &'a str) -> Cow<'a, str> {

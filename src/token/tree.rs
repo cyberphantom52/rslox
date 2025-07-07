@@ -1,8 +1,6 @@
-use std::borrow::Cow;
-
-use crate::error::{Error, ParseError, ParseErrorKind, RuntimeError, RuntimeErrorKind};
-
 use super::{BinaryOperator, Keyword, Operator, UnaryOperator};
+use crate::error::{ParseErrorKind, RuntimeErrorKind};
+use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
 pub struct TokenTree<'a>(pub Vec<Stmt<'a>>);
@@ -113,7 +111,7 @@ pub enum Atom<'a> {
 }
 
 impl<'a> std::ops::Add for Atom<'a> {
-    type Output = Result<Atom<'a>, Error>;
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn add(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
@@ -121,43 +119,41 @@ impl<'a> std::ops::Add for Atom<'a> {
                 Ok(Atom::String(Cow::Owned(format!("{}{}", s1, s2))))
             }
             (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 + n2)),
-            _ => Err(Error::RuntimeError(RuntimeError::new(
-                RuntimeErrorKind::InvalidOperand(
-                    "Operands must be two numbers or two strings.".to_string(),
-                ),
-            ))),
+            _ => Err(RuntimeErrorKind::InvalidOperand(
+                "Operands must be two numbers or two strings.".to_string(),
+            )),
         }
     }
 }
 
 impl<'a> std::ops::Sub for Atom<'a> {
-    type Output = Result<Atom<'a>, Error>;
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn sub(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
             (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 - n2)),
-            _ => Err(Error::RuntimeError(RuntimeError::new(
-                RuntimeErrorKind::InvalidOperand("Operands must be numbers".to_string()),
-            ))),
+            _ => Err(RuntimeErrorKind::InvalidOperand(
+                "Operands must be numbers".to_string(),
+            )),
         }
     }
 }
 
 impl<'a> std::ops::Mul for Atom<'a> {
-    type Output = Result<Atom<'a>, Error>;
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn mul(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
             (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 * n2)),
-            _ => Err(Error::RuntimeError(RuntimeError::new(
-                RuntimeErrorKind::InvalidOperand("Operands must be numbers".to_string()),
-            ))),
+            _ => Err(RuntimeErrorKind::InvalidOperand(
+                "Operands must be numbers".to_string(),
+            )),
         }
     }
 }
 
 impl<'a> std::ops::Div for Atom<'a> {
-    type Output = Result<Atom<'a>, Error>;
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn div(self, other: Atom<'_>) -> Self::Output {
         match (self, other) {
@@ -166,21 +162,21 @@ impl<'a> std::ops::Div for Atom<'a> {
             } else {
                 Atom::Number(n1 / n2)
             }),
-            _ => Err(Error::RuntimeError(RuntimeError::new(
-                RuntimeErrorKind::InvalidOperand("Operands must be numbers".to_string()),
-            ))),
+            _ => Err(RuntimeErrorKind::InvalidOperand(
+                "Operands must be numbers".to_string(),
+            )),
         }
     }
 }
 
 impl<'a> std::ops::Neg for Atom<'a> {
-    type Output = Result<Atom<'a>, Error>;
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn neg(self) -> Self::Output {
         match self {
             Atom::Number(n) => Ok(Atom::Number(-n)),
-            _ => Err(Error::RuntimeError(RuntimeError::new(
-                RuntimeErrorKind::InvalidOperand(format!("Operand must be a number.")),
+            _ => Err(RuntimeErrorKind::InvalidOperand(format!(
+                "Operand must be a number."
             ))),
         }
     }
@@ -341,7 +337,7 @@ impl Op {
 }
 
 impl TryFrom<UnaryOperator> for Op {
-    type Error = Error;
+    type Error = ParseErrorKind;
 
     fn try_from(value: UnaryOperator) -> Result<Self, Self::Error> {
         match value {
@@ -351,29 +347,25 @@ impl TryFrom<UnaryOperator> for Op {
             UnaryOperator::Star => Ok(Op::Star),
             UnaryOperator::Slash => Ok(Op::Slash),
             UnaryOperator::Bang => Ok(Op::Bang),
-            op => Err(Error::ParseError(ParseError::new(
-                ParseErrorKind::UnsupportedOperator(Operator::Unary(op)),
-            ))),
+            op => Err(ParseErrorKind::UnsupportedOperator(Operator::Unary(op))),
         }
     }
 }
 
 impl TryFrom<Keyword> for Op {
-    type Error = Error;
+    type Error = ParseErrorKind;
 
     fn try_from(value: Keyword) -> Result<Self, Self::Error> {
         match value {
             Keyword::Print => Ok(Op::Print),
             Keyword::Return => Ok(Op::Return),
-            _ => Err(Error::ParseError(ParseError::new(
-                ParseErrorKind::UnsupportedKeyword(value),
-            ))),
+            _ => Err(ParseErrorKind::UnsupportedKeyword(value)),
         }
     }
 }
 
 impl TryFrom<BinaryOperator> for Op {
-    type Error = Error;
+    type Error = ParseErrorKind;
 
     fn try_from(value: BinaryOperator) -> Result<Self, Self::Error> {
         match value {
@@ -389,7 +381,7 @@ impl TryFrom<BinaryOperator> for Op {
 }
 
 impl TryFrom<Operator> for Op {
-    type Error = Error;
+    type Error = ParseErrorKind;
 
     fn try_from(value: Operator) -> Result<Self, Self::Error> {
         match value {
