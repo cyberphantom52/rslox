@@ -9,6 +9,11 @@ use crate::{
     },
 };
 
+pub struct ParseResult<'a> {
+    pub tree: TokenTree<'a>,
+    pub errors: Vec<Error>,
+}
+
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
 }
@@ -29,12 +34,26 @@ impl<'a> Parser<'a> {
         Self { lexer }
     }
 
-    pub fn parse(&mut self) -> Result<TokenTree<'a>, Error> {
+    pub fn parse(&mut self) -> ParseResult<'a> {
         let mut stmts = Vec::new();
+        let mut errors = Vec::new();
+
         while let Some(_) = self.lexer.peek() {
-            stmts.push(self.parse_stmt()?);
+            match self.parse_stmt() {
+                Ok(stmt) => {
+                    stmts.push(stmt);
+                }
+                Err(e) => {
+                    // TODO: Sync error recovery
+                    errors.push(e);
+                }
+            }
         }
-        Ok(TokenTree(stmts))
+
+        ParseResult {
+            tree: TokenTree(stmts),
+            errors,
+        }
     }
 
     // TODO: Implement parsing for items (functions, classes, etc.)
