@@ -48,7 +48,7 @@ impl<'a> Parser<'a> {
                 return Err(Error::ParseError(ParseError::new(
                     self.lexer.source_code().to_string(),
                     ParseErrorKind::InvalidExpression(String::new()),
-                    SourceSpan::new(0.into(), 0),
+                    SourceSpan::new(self.lexer().byte_offset().into(), 0),
                 )));
             }
         };

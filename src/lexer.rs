@@ -43,6 +43,10 @@ impl<'a> Lexer<'a> {
     pub fn source_code(&self) -> &'a str {
         self.source_code
     }
+
+    pub fn byte_offset(&self) -> usize {
+        self.byte_offset
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
