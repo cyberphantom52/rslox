@@ -7,4 +7,4 @@ pub mod visitor;
 
 pub use interpreter::Interpreter;
 pub use lexer::Lexer;
-pub use parser::Parser;
+pub use parser::{ParseResult, Parser};

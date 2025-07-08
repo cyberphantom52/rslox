@@ -1,4 +1,4 @@
-use crate::error::{Error, LexingError, LexingErrorKind};
+use crate::error::LexingErrorKind;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UnaryOperator {
@@ -76,14 +76,14 @@ impl std::fmt::Display for Operator {
 }
 
 impl TryFrom<char> for Operator {
-    type Error = Error;
+    type Error = LexingErrorKind;
     fn try_from(value: char) -> Result<Self, Self::Error> {
         Self::try_from(value.to_string().as_str())
     }
 }
 
 impl TryFrom<&str> for Operator {
-    type Error = Error;
+    type Error = LexingErrorKind;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "(" => Ok(Operator::Unary(UnaryOperator::LeftParen)),
@@ -105,9 +105,7 @@ impl TryFrom<&str> for Operator {
             "==" => Ok(Operator::Binary(BinaryOperator::EqualEqual)),
             ">" => Ok(Operator::Binary(BinaryOperator::Greater)),
             ">=" => Ok(Operator::Binary(BinaryOperator::GreaterEqual)),
-            _ => Err(Error::LexingError(LexingError::new(
-                LexingErrorKind::InvalidOperator(value.to_string()),
-            ))),
+            _ => Err(LexingErrorKind::InvalidOperator(value.to_string())),
         }
     }
 }
