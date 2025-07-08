@@ -20,8 +20,11 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn expect(&mut self, expected: TokenType) -> Result<Token<'a>, Error> {
-        match self.next() {
-            Some(Ok(token)) if token.ty() == expected => Ok(token),
+        match self.peek() {
+            Some(Ok(token)) if token.ty() == expected => {
+                self.next();
+                Ok(token)
+            }
             Some(Ok(token)) => Err(Error::LexingError(LexingError::new(
                 self.source_code.to_string(),
                 LexingErrorKind::UnexpectedToken {
