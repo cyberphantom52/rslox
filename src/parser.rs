@@ -1,35 +1,124 @@
+use miette::SourceSpan;
+
 use crate::{
     error::{Error, ParseError, ParseErrorKind},
     lexer::Lexer,
-    token::{Atom, Keyword, Literal, Op, Operator, Token, TokenTree, TokenType, UnaryOperator},
+    token::{
+        Atom, AtomKind, Expr, Keyword, Literal, Op, Operator, Stmt, Token, TokenTree, TokenType,
+        UnaryOperator,
+    },
 };
+
+pub struct ParseResult<'a> {
+    pub tree: TokenTree<'a>,
+    pub errors: Vec<Error>,
+}
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
 }
 
+impl<'a> From<Lexer<'a>> for Parser<'a> {
+    fn from(lexer: Lexer<'a>) -> Self {
+        Self { lexer }
+    }
+}
+
 impl<'a> Parser<'a> {
-    pub fn with_lexer(lexer: Lexer<'a>) -> Self {
+    pub fn lexer(&self) -> &Lexer<'a> {
+        &self.lexer
+    }
+
+    pub fn new(source: &'a str) -> Self {
+        let lexer = Lexer::new(source);
         Self { lexer }
     }
 
-    pub fn parse(&mut self) -> Result<TokenTree<'a>, Error> {
-        self.parse_expr(0)
+    pub fn parse(&mut self) -> ParseResult<'a> {
+        let mut stmts = Vec::new();
+        let mut errors = Vec::new();
+
+        while let Some(_) = self.lexer.peek() {
+            match self.parse_stmt() {
+                Ok(stmt) => {
+                    stmts.push(stmt);
+                }
+                Err(e) => {
+                    // TODO: Sync error recovery
+                    errors.push(e);
+                }
+            }
+        }
+
+        ParseResult {
+            tree: TokenTree(stmts),
+            errors,
+        }
     }
 
-    fn parse_expr(&mut self, min_bp: u8) -> Result<TokenTree<'a>, Error> {
+    // TODO: Implement parsing for items (functions, classes, etc.)
+    fn parse_stmt(&mut self) -> Result<Stmt<'a>, Error> {
+        let expr = self.parse_expr(0)?;
+        self.lexer.expect(TokenType::Operator(Operator::Unary(
+            UnaryOperator::Selmicolon,
+        )))?;
+        Ok(Stmt::Expr(expr))
+    }
+
+    fn parse_expr(&mut self, min_bp: u8) -> Result<Expr<'a>, Error> {
         let lhs = match self.lexer.next() {
             Some(Ok(token)) => token,
             Some(Err(e)) => return Err(e),
             None => {
-                return Err(Error::ParseError(ParseError::with_line(
+                return Err(Error::ParseError(ParseError::new(
+                    self.lexer.source_code().to_string(),
                     ParseErrorKind::InvalidExpression(String::new()),
-                    self.lexer.line(),
+                    SourceSpan::new(self.lexer().byte_offset().into(), 0),
                 )));
             }
         };
 
         let mut lhs = match lhs.ty() {
+            TokenType::Literal(lit) => match lit {
+                Literal::String => Expr::Atom(Atom::new(
+                    AtomKind::String(Token::unescape(lhs.lexeme())),
+                    lhs.span(),
+                )),
+                Literal::Identifier => {
+                    Expr::Atom(Atom::new(AtomKind::Ident(lhs.lexeme()), lhs.span()))
+                }
+                Literal::Number(n) => Expr::Atom(Atom::new(AtomKind::Number(n), lhs.span())),
+            },
+            TokenType::Keyword(kw) => match kw {
+                Keyword::True => Expr::Atom(Atom::new(AtomKind::Bool(true), lhs.span())),
+                Keyword::False => Expr::Atom(Atom::new(AtomKind::Bool(false), lhs.span())),
+                Keyword::Nil => Expr::Atom(Atom::new(AtomKind::Nil, lhs.span())),
+                Keyword::This => Expr::Atom(Atom::new(AtomKind::This, lhs.span())),
+                Keyword::Super => Expr::Atom(Atom::new(AtomKind::Super, lhs.span())),
+                Keyword::Print | Keyword::Return => {
+                    // Safe to unwrap as we checked the token type
+                    let op: Op = kw.try_into().map_err(|kind| {
+                        Error::ParseError(ParseError::new(
+                            self.lexer().source_code().to_string(),
+                            kind,
+                            lhs.span(),
+                        ))
+                    })?;
+                    let ((), r_bp) = op.prefix_binding_power().unwrap();
+                    let rhs = self.parse_expr(r_bp)?;
+                    Expr::Unary {
+                        op,
+                        expr: Box::new(rhs),
+                    }
+                }
+                _ => {
+                    return Err(Error::ParseError(ParseError::new(
+                        self.lexer().source_code().to_string(),
+                        ParseErrorKind::UnexpectedKeyword(kw),
+                        lhs.span(),
+                    )));
+                }
+            },
             TokenType::Operator(Operator::Unary(op)) => match op {
                 UnaryOperator::LeftParen => {
                     let lhs = self.parse_expr(0)?;
@@ -38,49 +127,37 @@ impl<'a> Parser<'a> {
                         UnaryOperator::RightParen,
                     )))?;
 
-                    TokenTree::Cons(Op::Group, vec![lhs])
+                    Expr::Group(Box::new(lhs))
                 }
                 UnaryOperator::Bang | UnaryOperator::Minus | UnaryOperator::Plus => {
                     // Safe to unwrap as we checked the token type
-                    let op: Op = op.try_into()?;
+                    let op: Op = op.try_into().map_err(|kind| {
+                        Error::ParseError(ParseError::new(
+                            self.lexer().source_code().to_string(),
+                            kind,
+                            lhs.span(),
+                        ))
+                    })?;
                     let ((), r_bp) = op.prefix_binding_power().unwrap();
                     let rhs = self.parse_expr(r_bp)?;
-                    TokenTree::Cons(op, vec![rhs])
-                }
-                _ => {
-                    return Err(Error::ParseError(ParseError::with_line(
-                        ParseErrorKind::InvalidExpression(lhs.lexeme().to_string()),
-                        self.lexer.line(),
-                    )));
-                }
-            },
-            TokenType::Literal(lit) => match lit {
-                Literal::String => TokenTree::Atom(Atom::String(Token::unescape(lhs.lexeme()))),
-                Literal::Identifier => TokenTree::Atom(Atom::Ident(lhs.lexeme())),
-                Literal::Number(n) => TokenTree::Atom(Atom::Number(n)),
-            },
-            TokenType::Keyword(kw) => match kw {
-                Keyword::True => TokenTree::Atom(Atom::Bool(true)),
-                Keyword::False => TokenTree::Atom(Atom::Bool(false)),
-                Keyword::Nil => TokenTree::Atom(Atom::Nil),
-                Keyword::This => TokenTree::Atom(Atom::This),
-                Keyword::Super => TokenTree::Atom(Atom::Super),
-                Keyword::Print | Keyword::Return => {
-                    // Safe to unwrap as we checked the token type
-                    let op: Op = kw.try_into()?;
-                    let ((), r_bp) = op.prefix_binding_power().unwrap();
-                    let rhs = self.parse_expr(r_bp)?;
-                    TokenTree::Cons(op, vec![rhs])
+                    Expr::Unary {
+                        op,
+                        expr: Box::new(rhs),
+                    }
                 }
                 _ => {
                     return Err(Error::ParseError(ParseError::new(
-                        ParseErrorKind::UnexpectedKeyword(kw),
+                        self.lexer().source_code().to_string(),
+                        ParseErrorKind::InvalidExpression(lhs.lexeme().to_string()),
+                        lhs.span(),
                     )));
                 }
             },
             _ => {
                 return Err(Error::ParseError(ParseError::new(
+                    self.lexer().source_code().to_string(),
                     ParseErrorKind::UnexpectedToken(lhs.ty(), lhs.lexeme().to_string()),
+                    lhs.span(),
                 )));
             }
         };
@@ -90,11 +167,21 @@ impl<'a> Parser<'a> {
                 Some(token) => {
                     let token = token?;
                     match token.ty() {
-                        TokenType::Operator(Operator::Unary(UnaryOperator::RightParen)) => break,
-                        TokenType::Operator(op) => op.try_into()?,
+                        TokenType::Operator(Operator::Unary(
+                            UnaryOperator::RightParen | UnaryOperator::Selmicolon,
+                        )) => break,
+                        TokenType::Operator(op) => op.try_into().map_err(|kind| {
+                            Error::ParseError(ParseError::new(
+                                self.lexer().source_code().to_string(),
+                                kind,
+                                token.span(),
+                            ))
+                        })?,
                         ty => {
                             return Err(Error::ParseError(ParseError::new(
+                                self.lexer().source_code().to_string(),
                                 ParseErrorKind::UnexpectedToken(ty, token.lexeme().to_string()),
+                                token.span(),
                             )));
                         }
                     }
@@ -108,7 +195,10 @@ impl<'a> Parser<'a> {
                 }
                 self.lexer.next();
 
-                lhs = TokenTree::Cons(op, vec![lhs]);
+                lhs = Expr::Unary {
+                    op,
+                    expr: Box::new(lhs),
+                };
                 continue;
             }
 
@@ -120,7 +210,11 @@ impl<'a> Parser<'a> {
 
                 let rhs = self.parse_expr(r_bp)?;
 
-                lhs = TokenTree::Cons(op, vec![lhs, rhs]);
+                lhs = Expr::Binary {
+                    left: Box::new(lhs),
+                    op,
+                    right: Box::new(rhs),
+                };
                 continue;
             }
 
