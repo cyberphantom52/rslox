@@ -102,7 +102,12 @@ impl<'a> Iterator for Lexer<'a> {
                     if let Some(end) = iterator.position(|c| c == '"') {
                         self.byte_offset += end + 1;
                     } else {
-                        self.byte_offset = self.source_code.len();
+                        self.byte_offset = self.source_code[cur_byte_offset..]
+                            .chars()
+                            .position(|c| c == ';')
+                            .map(|pos| cur_byte_offset + pos)
+                            .unwrap_or(self.source_code.len() - cur_byte_offset);
+
                         return Some(Err(Error::LexingError(LexingError::new(
                             self.source_code.to_string(),
                             LexingErrorKind::UnterminatedString,
