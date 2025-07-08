@@ -163,35 +163,30 @@ pub fn merge_span(s1: SourceSpan, s2: SourceSpan) -> SourceSpan {
     SourceSpan::new(start.into(), length)
 }
 
-impl<'a> std::ops::Add for Atom<'a> {
-    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+impl<'a> std::ops::Add for &AtomKind<'a> {
+    type Output = Result<AtomKind<'a>, RuntimeErrorKind>;
 
-    fn add(self, other: Atom<'_>) -> Self::Output {
-        let kind = match (self.kind(), other.kind()) {
+    fn add(self, other: Self) -> Self::Output {
+        match (self, other) {
             (AtomKind::String(s1), AtomKind::String(s2)) => {
-                AtomKind::String(Cow::Owned(format!("{}{}", s1, s2)))
+                Ok(AtomKind::String(Cow::Owned(format!("{}{}", s1, s2))))
             }
-            (AtomKind::Number(n1), AtomKind::Number(n2)) => AtomKind::Number(n1 + n2),
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => Ok(AtomKind::Number(n1 + n2)),
             _ => {
                 return Err(RuntimeErrorKind::InvalidOperand(
                     "Operands must be two numbers or two strings.".to_string(),
                 ));
             }
-        };
-        let span = merge_span(self.span(), other.span());
-        Ok(Atom::new(kind, span))
+        }
     }
 }
 
-impl<'a> std::ops::Sub for Atom<'a> {
-    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+impl<'a> std::ops::Sub for &AtomKind<'a> {
+    type Output = Result<AtomKind<'a>, RuntimeErrorKind>;
 
-    fn sub(self, other: Atom<'_>) -> Self::Output {
-        match (self.kind(), other.kind()) {
-            (AtomKind::Number(n1), AtomKind::Number(n2)) => Ok(Atom::new(
-                AtomKind::Number(n1 - n2),
-                merge_span(self.span(), other.span()),
-            )),
+    fn sub(self, other: Self) -> Self::Output {
+        match (self, other) {
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => Ok(AtomKind::Number(n1 - n2)),
             _ => Err(RuntimeErrorKind::InvalidOperand(
                 "Operands must be numbers".to_string(),
             )),
@@ -199,15 +194,12 @@ impl<'a> std::ops::Sub for Atom<'a> {
     }
 }
 
-impl<'a> std::ops::Mul for Atom<'a> {
-    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+impl<'a> std::ops::Mul for &AtomKind<'a> {
+    type Output = Result<AtomKind<'a>, RuntimeErrorKind>;
 
-    fn mul(self, other: Atom<'_>) -> Self::Output {
-        match (self.kind(), other.kind()) {
-            (AtomKind::Number(n1), AtomKind::Number(n2)) => Ok(Atom::new(
-                AtomKind::Number(n1 * n2),
-                merge_span(self.span(), other.span()),
-            )),
+    fn mul(self, other: Self) -> Self::Output {
+        match (self, other) {
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => Ok(AtomKind::Number(n1 * n2)),
             _ => Err(RuntimeErrorKind::InvalidOperand(
                 "Operands must be numbers".to_string(),
             )),
@@ -215,19 +207,16 @@ impl<'a> std::ops::Mul for Atom<'a> {
     }
 }
 
-impl<'a> std::ops::Div for Atom<'a> {
-    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+impl<'a> std::ops::Div for &AtomKind<'a> {
+    type Output = Result<AtomKind<'a>, RuntimeErrorKind>;
 
-    fn div(self, other: Atom<'_>) -> Self::Output {
-        match (self.kind(), other.kind()) {
+    fn div(self, other: Self) -> Self::Output {
+        match (self, other) {
             (AtomKind::Number(n1), AtomKind::Number(n2)) => {
                 if *n2 == 0.0 {
                     Err(RuntimeErrorKind::DivisionByZero)
                 } else {
-                    Ok(Atom::new(
-                        AtomKind::Number(n1 / n2),
-                        merge_span(self.span(), other.span()),
-                    ))
+                    Ok(AtomKind::Number(n1 / n2))
                 }
             }
             _ => Err(RuntimeErrorKind::InvalidOperand(
@@ -237,26 +226,26 @@ impl<'a> std::ops::Div for Atom<'a> {
     }
 }
 
-impl<'a> std::ops::Neg for Atom<'a> {
-    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+impl<'a> std::ops::Neg for AtomKind<'a> {
+    type Output = Result<AtomKind<'a>, RuntimeErrorKind>;
 
     fn neg(self) -> Self::Output {
-        match self.kind() {
-            AtomKind::Number(n) => Ok(Atom::new(AtomKind::Number(-n), self.span())),
-            _ => Err(RuntimeErrorKind::InvalidOperand(format!(
-                "Operand must be a number."
-            ))),
+        match self {
+            AtomKind::Number(n) => Ok(AtomKind::Number(-n)),
+            _ => Err(RuntimeErrorKind::InvalidOperand(
+                "Operand must be a number.".to_string(),
+            )),
         }
     }
 }
 
-impl<'a> std::ops::Not for Atom<'a> {
-    type Output = Atom<'a>;
+impl<'a> std::ops::Not for AtomKind<'a> {
+    type Output = AtomKind<'a>;
 
-    fn not(self) -> Atom<'a> {
-        match self.kind() {
-            AtomKind::Bool(b) => Atom::new(AtomKind::Bool(!b), self.span()),
-            _ => Atom::new(AtomKind::Nil, self.span()),
+    fn not(self) -> AtomKind<'a> {
+        match self {
+            AtomKind::Bool(b) => AtomKind::Bool(!b),
+            _ => AtomKind::Nil,
         }
     }
 }
@@ -281,6 +270,64 @@ impl<'a> std::cmp::PartialOrd for AtomKind<'a> {
             (AtomKind::String(s1), AtomKind::String(s2)) => s1.partial_cmp(s2),
             _ => None,
         }
+    }
+}
+
+impl<'a> std::ops::Add for Atom<'a> {
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+
+    fn add(self, other: Atom<'a>) -> Self::Output {
+        let span = merge_span(self.span(), other.span());
+        let kind = (self.kind() + other.kind())?;
+        Ok(Atom::new(kind, span))
+    }
+}
+
+impl<'a> std::ops::Sub for Atom<'a> {
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+
+    fn sub(self, other: Atom<'a>) -> Self::Output {
+        let span = merge_span(self.span(), other.span());
+        let kind = (self.kind() - other.kind())?;
+        Ok(Atom::new(kind, span))
+    }
+}
+
+impl<'a> std::ops::Mul for Atom<'a> {
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+
+    fn mul(self, other: Atom<'a>) -> Self::Output {
+        let span = merge_span(self.span(), other.span());
+        let kind = (self.kind() * other.kind())?;
+        Ok(Atom::new(kind, span))
+    }
+}
+
+impl<'a> std::ops::Div for Atom<'a> {
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+
+    fn div(self, other: Atom<'a>) -> Self::Output {
+        let span = merge_span(self.span(), other.span());
+        let kind = (self.kind() / other.kind())?;
+        Ok(Atom::new(kind, span))
+    }
+}
+
+impl<'a> std::ops::Neg for Atom<'a> {
+    type Output = Result<Atom<'a>, RuntimeErrorKind>;
+
+    fn neg(self) -> Self::Output {
+        let kind = (-self.kind.clone())?;
+        Ok(Atom::new(kind, self.span()))
+    }
+}
+
+impl<'a> std::ops::Not for Atom<'a> {
+    type Output = Atom<'a>;
+
+    fn not(self) -> Atom<'a> {
+        let kind = !self.kind.clone();
+        Atom::new(kind, self.span())
     }
 }
 

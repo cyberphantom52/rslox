@@ -55,64 +55,29 @@ impl<'a> ExprVisitor<'a, Atom<'a>> for Interpreter<'a> {
     ) -> Result<Atom<'a>, Error> {
         let left_value = left.accept(self)?;
         let right_value = right.accept(self)?;
-        match op {
-            Op::Plus => (left_value + right_value).map_err(|kind| {
-                Error::RuntimeError(RuntimeError::new(
-                    self.parser.lexer().source_code().to_string(),
-                    kind,
-                    merge_span(left.span(), right.span()),
-                ))
-            }),
-            Op::Minus => (left_value - right_value).map_err(|kind| {
-                Error::RuntimeError(RuntimeError::new(
-                    self.parser.lexer().source_code().to_string(),
-                    kind,
-                    merge_span(left.span(), right.span()),
-                ))
-            }),
-            Op::Star => (left_value * right_value).map_err(|kind| {
-                Error::RuntimeError(RuntimeError::new(
-                    self.parser.lexer().source_code().to_string(),
-                    kind,
-                    merge_span(left.span(), right.span()),
-                ))
-            }),
-            Op::Slash => (left_value / right_value).map_err(|kind| {
-                Error::RuntimeError(RuntimeError::new(
-                    self.parser.lexer().source_code().to_string(),
-                    kind,
-                    merge_span(left.span(), right.span()),
-                ))
-            }),
-            Op::EqualEqual => Ok(Atom::new(
-                AtomKind::Bool(left_value == right_value),
-                merge_span(left.span(), right.span()),
-            )),
-            Op::BangEqual => Ok(Atom::new(
-                AtomKind::Bool(left_value != right_value),
-                merge_span(left.span(), right.span()),
-            )),
-            Op::Less => Ok(Atom::new(
-                AtomKind::Bool(left_value < right_value),
-                merge_span(left.span(), right.span()),
-            )),
-            Op::LessEqual => Ok(Atom::new(
-                AtomKind::Bool(left_value <= right_value),
-                merge_span(left.span(), right.span()),
-            )),
-            Op::Greater => Ok(Atom::new(
-                AtomKind::Bool(left_value > right_value),
-                merge_span(left.span(), right.span()),
-            )),
-            Op::GreaterEqual => Ok(Atom::new(
-                AtomKind::Bool(left_value >= right_value),
-                merge_span(left.span(), right.span()),
-            )),
-            _ => Ok(Atom::new(
-                AtomKind::Nil,
-                merge_span(left.span(), right.span()),
-            )),
+        let span = merge_span(left.span(), right.span());
+        let kind = match op {
+            Op::Plus => left_value.kind() + right_value.kind(),
+            Op::Minus => left_value.kind() - right_value.kind(),
+            Op::Star => left_value.kind() * right_value.kind(),
+            Op::Slash => left_value.kind() / right_value.kind(),
+            Op::EqualEqual => Ok(AtomKind::Bool(left_value == right_value)),
+            Op::BangEqual => Ok(AtomKind::Bool(left_value != right_value)),
+            Op::Less => Ok(AtomKind::Bool(left_value < right_value)),
+            Op::LessEqual => Ok(AtomKind::Bool(left_value <= right_value)),
+            Op::Greater => Ok(AtomKind::Bool(left_value > right_value)),
+            Op::GreaterEqual => Ok(AtomKind::Bool(left_value >= right_value)),
+            _ => Ok(AtomKind::Nil),
         }
+        .map_err(|kind| {
+            Error::RuntimeError(RuntimeError::new(
+                self.parser.lexer().source_code().to_string(),
+                kind,
+                span,
+            ))
+        })?;
+
+        Ok(Atom::new(kind, span))
     }
 
     fn visit_block(&mut self, stmts: &[Stmt<'a>]) -> Result<Atom<'a>, Error> {
