@@ -1,7 +1,7 @@
 use crate::{
-    Parser,
-    error::Error,
-    token::{Atom, Expr, Item, Op, Stmt},
+    ParseResult, Parser,
+    error::{Error, RuntimeError},
+    token::{Atom, AtomKind, Expr, Item, Op, Stmt, merge_span},
     visitor::{ExprVisitor, StmtVisitor},
 };
 
@@ -9,19 +9,27 @@ pub struct Interpreter<'a> {
     parser: Parser<'a>,
 }
 
+impl<'a> From<Parser<'a>> for Interpreter<'a> {
+    fn from(parser: Parser<'a>) -> Self {
+        Self { parser }
+    }
+}
+
 impl<'a> Interpreter<'a> {
-    pub fn with_parser(parser: Parser<'a>) -> Self {
+    pub fn new(source: &'a str) -> Self {
+        let parser = Parser::new(source);
         Self { parser }
     }
 
     pub fn interpret(&mut self) -> Result<(), Error> {
-        let tree = self.parser.parse()?;
+        let ParseResult { tree, .. } = self.parser.parse();
+
         for stmt in tree.0 {
             let result = stmt.accept(self);
             match stmt {
                 Stmt::Expr(_) => match result {
                     Err(e) => {
-                        eprintln!("{}", e);
+                        eprintln!("{:?}", miette::Report::new(e));
                     }
                     Ok(atom) => {
                         println!("{}", atom);
@@ -48,17 +56,62 @@ impl<'a> ExprVisitor<'a, Atom<'a>> for Interpreter<'a> {
         let left_value = left.accept(self)?;
         let right_value = right.accept(self)?;
         match op {
-            Op::Plus => left_value + right_value,
-            Op::Minus => left_value - right_value,
-            Op::Star => left_value * right_value,
-            Op::Slash => left_value / right_value,
-            Op::EqualEqual => Ok(Atom::Bool(left_value == right_value)),
-            Op::BangEqual => Ok(Atom::Bool(left_value != right_value)),
-            Op::Less => Ok(Atom::Bool(left_value < right_value)),
-            Op::LessEqual => Ok(Atom::Bool(left_value <= right_value)),
-            Op::Greater => Ok(Atom::Bool(left_value > right_value)),
-            Op::GreaterEqual => Ok(Atom::Bool(left_value >= right_value)),
-            _ => Ok(Atom::Nil),
+            Op::Plus => (left_value + right_value).map_err(|kind| {
+                Error::RuntimeError(RuntimeError::new(
+                    self.parser.lexer().source_code().to_string(),
+                    kind,
+                    merge_span(left.span(), right.span()),
+                ))
+            }),
+            Op::Minus => (left_value - right_value).map_err(|kind| {
+                Error::RuntimeError(RuntimeError::new(
+                    self.parser.lexer().source_code().to_string(),
+                    kind,
+                    merge_span(left.span(), right.span()),
+                ))
+            }),
+            Op::Star => (left_value * right_value).map_err(|kind| {
+                Error::RuntimeError(RuntimeError::new(
+                    self.parser.lexer().source_code().to_string(),
+                    kind,
+                    merge_span(left.span(), right.span()),
+                ))
+            }),
+            Op::Slash => (left_value / right_value).map_err(|kind| {
+                Error::RuntimeError(RuntimeError::new(
+                    self.parser.lexer().source_code().to_string(),
+                    kind,
+                    merge_span(left.span(), right.span()),
+                ))
+            }),
+            Op::EqualEqual => Ok(Atom::new(
+                AtomKind::Bool(left_value == right_value),
+                merge_span(left.span(), right.span()),
+            )),
+            Op::BangEqual => Ok(Atom::new(
+                AtomKind::Bool(left_value != right_value),
+                merge_span(left.span(), right.span()),
+            )),
+            Op::Less => Ok(Atom::new(
+                AtomKind::Bool(left_value < right_value),
+                merge_span(left.span(), right.span()),
+            )),
+            Op::LessEqual => Ok(Atom::new(
+                AtomKind::Bool(left_value <= right_value),
+                merge_span(left.span(), right.span()),
+            )),
+            Op::Greater => Ok(Atom::new(
+                AtomKind::Bool(left_value > right_value),
+                merge_span(left.span(), right.span()),
+            )),
+            Op::GreaterEqual => Ok(Atom::new(
+                AtomKind::Bool(left_value >= right_value),
+                merge_span(left.span(), right.span()),
+            )),
+            _ => Ok(Atom::new(
+                AtomKind::Nil,
+                merge_span(left.span(), right.span()),
+            )),
         }
     }
 
@@ -73,9 +126,15 @@ impl<'a> ExprVisitor<'a, Atom<'a>> for Interpreter<'a> {
     fn visit_unary(&mut self, op: &Op, expr: &Expr<'a>) -> Result<Atom<'a>, Error> {
         let value = expr.accept(self)?;
         match op {
-            Op::Minus => -value,
+            Op::Minus => (-value).map_err(|kind| {
+                Error::RuntimeError(RuntimeError::new(
+                    self.parser.lexer().source_code().to_string(),
+                    kind,
+                    expr.span(),
+                ))
+            }),
             Op::Bang => Ok(!value),
-            _ => Ok(Atom::Nil),
+            _ => Ok(Atom::new(AtomKind::Nil, expr.span())),
         }
     }
 }
@@ -90,308 +149,436 @@ impl<'a> StmtVisitor<'a, Atom<'a>> for Interpreter<'a> {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
 
-    use super::*;
-    use crate::*;
+    use miette::SourceSpan;
 
-    fn setup<'a>() -> Interpreter<'a> {
-        let lexer = Lexer::new("");
-        let parser = Parser::with_lexer(lexer);
-        Interpreter::with_parser(parser)
-    }
+    use super::*;
 
     #[test]
     fn test_true_expr() {
-        let mut visitor = setup();
-        let expr = Expr::Atom(Atom::Bool(true));
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let mut visitor = Interpreter::new("");
+        let expr = Expr::Atom(Atom::new(
+            AtomKind::Bool(true),
+            SourceSpan::new(0.into(), 0),
+        ));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 
     #[test]
     fn test_false_expr() {
-        let mut visitor = setup();
-        let expr = Expr::Atom(Atom::Bool(false));
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(false));
+        let mut visitor = Interpreter::new("");
+        let expr = Expr::Atom(Atom::new(
+            AtomKind::Bool(false),
+            SourceSpan::new(0.into(), 0),
+        ));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(false));
     }
 
     #[test]
     fn test_nil_expr() {
-        let mut visitor = setup();
-        let expr = Expr::Atom(Atom::Nil);
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Nil);
+        let mut visitor = Interpreter::new("");
+        let expr = Expr::Atom(Atom::new(AtomKind::Nil, SourceSpan::new(0.into(), 0)));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Nil);
     }
 
     #[test]
     fn test_string_expr() {
-        let mut visitor = setup();
-        let expr = Expr::Atom(Atom::String(Cow::Owned("Hello World!".to_string())));
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::String(Cow::Owned("Hello World!".to_string())));
+        let mut visitor = Interpreter::new("");
+        let expr = Expr::Atom(Atom::new(
+            AtomKind::String(Cow::Owned("Hello World!".to_string())),
+            SourceSpan::new(0.into(), 0),
+        ));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(
+            *result.kind(),
+            AtomKind::String(Cow::Owned("Hello World!".to_string()))
+        );
     }
 
     #[test]
     fn test_number_expr() {
-        let mut visitor = setup();
-        let expr = Expr::Atom(Atom::Number(42.0));
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(42.0));
+        let mut visitor = Interpreter::new("");
+        let expr = Expr::Atom(Atom::new(
+            AtomKind::Number(42.0),
+            SourceSpan::new(0.into(), 0),
+        ));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(42.0));
     }
 
     #[test]
     fn test_group_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(8.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(8.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Star,
             right: Box::new(Expr::Group(Box::new(Expr::Binary {
-                left: Box::new(Expr::Atom(Atom::Number(8.0))),
+                left: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(8.0),
+                    SourceSpan::new(0.into(), 0),
+                ))),
                 op: Op::Plus,
-                right: Box::new(Expr::Atom(Atom::Number(2.0))),
+                right: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(2.0),
+                    SourceSpan::new(0.into(), 0),
+                ))),
             }))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(80.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(80.0));
     }
 
     #[test]
     fn test_unary_neg_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Unary {
             op: Op::Minus,
-            expr: Box::new(Expr::Atom(Atom::Number(5.0))),
+            expr: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(-5.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(-5.0));
     }
 
     #[test]
     fn test_unary_not_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Unary {
             op: Op::Bang,
-            expr: Box::new(Expr::Atom(Atom::Bool(true))),
+            expr: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Bool(true),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(false));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(false));
     }
 
     #[test]
     fn test_unary_group_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Unary {
             op: Op::Minus,
             expr: Box::new(Expr::Group(Box::new(Expr::Group(Box::new(Expr::Atom(
-                Atom::Number(5.0),
+                Atom::new(AtomKind::Number(5.0), SourceSpan::new(0.into(), 0)),
             )))))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(-5.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(-5.0));
     }
 
     #[test]
     fn test_arithmetic_mul_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(5.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Star,
-            right: Box::new(Expr::Atom(Atom::Number(3.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(3.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(15.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(15.0));
     }
 
     #[test]
     fn test_arithmetic_div_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(10.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(10.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Slash,
-            right: Box::new(Expr::Atom(Atom::Number(2.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(2.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(5.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(5.0));
     }
 
     #[test]
     fn test_airthmetic_mul_div_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
             left: Box::new(Expr::Group(Box::new(Expr::Binary {
-                left: Box::new(Expr::Atom(Atom::Number(10.40))),
+                left: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(10.40),
+                    SourceSpan::new(0.into(), 0),
+                ))),
                 op: Op::Star,
-                right: Box::new(Expr::Atom(Atom::Number(2.0))),
+                right: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(2.0),
+                    SourceSpan::new(0.into(), 0),
+                ))),
             }))),
             op: Op::Slash,
-            right: Box::new(Expr::Atom(Atom::Number(2.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(2.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(10.4));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(10.4));
     }
 
     #[test]
     fn test_arithmetic_add_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(5.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Plus,
-            right: Box::new(Expr::Atom(Atom::Number(3.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(3.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(8.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(8.0));
     }
 
     #[test]
     fn test_arithmetic_sub_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(5.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Minus,
-            right: Box::new(Expr::Atom(Atom::Number(3.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(3.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(2.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(2.0));
     }
 
     #[test]
     fn test_arithmetic_add_sub_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
             left: Box::new(Expr::Binary {
-                left: Box::new(Expr::Atom(Atom::Number(23.0))),
+                left: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(23.0),
+                    SourceSpan::new(0.into(), 0),
+                ))),
                 op: Op::Plus,
-                right: Box::new(Expr::Atom(Atom::Number(28.0))),
+                right: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(28.0),
+                    SourceSpan::new(0.into(), 0),
+                ))),
             }),
             op: Op::Minus,
             right: Box::new(Expr::Group(Box::new(Expr::Unary {
                 op: Op::Minus,
                 expr: Box::new(Expr::Group(Box::new(Expr::Binary {
-                    left: Box::new(Expr::Atom(Atom::Number(61.0))),
+                    left: Box::new(Expr::Atom(Atom::new(
+                        AtomKind::Number(61.0),
+                        SourceSpan::new(0.into(), 0),
+                    ))),
                     op: Op::Minus,
-                    right: Box::new(Expr::Atom(Atom::Number(99.0))),
+                    right: Box::new(Expr::Atom(Atom::new(
+                        AtomKind::Number(99.0),
+                        SourceSpan::new(0.into(), 0),
+                    ))),
                 }))),
             }))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Number(13.0));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Number(13.0));
     }
 
     #[test]
     fn test_string_concatenation_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::String(Cow::Borrowed("Hello ")))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::String(Cow::Borrowed("Hello ")),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Plus,
-            right: Box::new(Expr::Atom(Atom::String(Cow::Borrowed("World!")))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::String(Cow::Borrowed("World!")),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::String(Cow::Owned("Hello World!".to_string())));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(
+            *result.kind(),
+            AtomKind::String(Cow::Owned("Hello World!".to_string()))
+        );
     }
 
     #[test]
     fn test_relational_greater_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(10.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(10.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Greater,
-            right: Box::new(Expr::Atom(Atom::Number(5.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 
     #[test]
     fn test_relational_less_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(3.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(3.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::Less,
-            right: Box::new(Expr::Atom(Atom::Number(7.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(7.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 
     #[test]
     fn test_relational_greater_equal_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(5.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::GreaterEqual,
-            right: Box::new(Expr::Atom(Atom::Number(5.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 
     #[test]
     fn test_relational_less_equal_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(4.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(4.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::LessEqual,
-            right: Box::new(Expr::Atom(Atom::Number(5.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 
     #[test]
     fn test_huge_relational_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
 
         let expr = Expr::Binary {
             left: Box::new(Expr::Group(Box::new(Expr::Binary {
-                left: Box::new(Expr::Atom(Atom::Number(54.0))),
+                left: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(54.0),
+                    SourceSpan::new(0.into(), 0),
+                ))),
                 op: Op::Minus,
-                right: Box::new(Expr::Atom(Atom::Number(54.0))),
+                right: Box::new(Expr::Atom(Atom::new(
+                    AtomKind::Number(54.0),
+                    SourceSpan::new(0.into(), 0),
+                ))),
             }))),
             op: Op::GreaterEqual,
             right: Box::new(Expr::Unary {
                 op: Op::Minus,
                 expr: Box::new(Expr::Group(Box::new(Expr::Binary {
                     left: Box::new(Expr::Binary {
-                        left: Box::new(Expr::Atom(Atom::Number(114.0))),
+                        left: Box::new(Expr::Atom(Atom::new(
+                            AtomKind::Number(114.0),
+                            SourceSpan::new(0.into(), 0),
+                        ))),
                         op: Op::Slash,
-                        right: Box::new(Expr::Atom(Atom::Number(57.0))),
+                        right: Box::new(Expr::Atom(Atom::new(
+                            AtomKind::Number(57.0),
+                            SourceSpan::new(0.into(), 0),
+                        ))),
                     }),
                     op: Op::Plus,
-                    right: Box::new(Expr::Atom(Atom::Number(11.0))),
+                    right: Box::new(Expr::Atom(Atom::new(
+                        AtomKind::Number(11.0),
+                        SourceSpan::new(0.into(), 0),
+                    ))),
                 }))),
             }),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 
     #[test]
     fn test_equality_equal_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(5.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::EqualEqual,
-            right: Box::new(Expr::Atom(Atom::Number(5.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 
     #[test]
     fn test_equality_not_equal_expr() {
-        let mut visitor = setup();
+        let mut visitor = Interpreter::new("");
         let expr = Expr::Binary {
-            left: Box::new(Expr::Atom(Atom::Number(5.0))),
+            left: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(5.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
             op: Op::BangEqual,
-            right: Box::new(Expr::Atom(Atom::Number(3.0))),
+            right: Box::new(Expr::Atom(Atom::new(
+                AtomKind::Number(3.0),
+                SourceSpan::new(0.into(), 0),
+            ))),
         };
-        let result = expr.accept(&mut visitor);
-        assert_eq!(result, Atom::Bool(true));
+        let result = expr.accept(&mut visitor).unwrap();
+        assert_eq!(*result.kind(), AtomKind::Bool(true));
     }
 }
-*/

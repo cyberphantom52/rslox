@@ -261,9 +261,9 @@ impl<'a> std::ops::Not for Atom<'a> {
     }
 }
 
-impl<'a> std::cmp::PartialEq for Atom<'a> {
+impl<'a> std::cmp::PartialEq for AtomKind<'a> {
     fn eq(&self, other: &Self) -> bool {
-        match (self.kind(), other.kind()) {
+        match (self, other) {
             (AtomKind::String(s1), AtomKind::String(s2)) => s1 == s2,
             (AtomKind::Number(n1), AtomKind::Number(n2)) => n1 == n2,
             (AtomKind::Nil, AtomKind::Nil) => true,
@@ -274,13 +274,25 @@ impl<'a> std::cmp::PartialEq for Atom<'a> {
     }
 }
 
-impl<'a> std::cmp::PartialOrd for Atom<'a> {
+impl<'a> std::cmp::PartialOrd for AtomKind<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self.kind(), other.kind()) {
+        match (self, other) {
             (AtomKind::Number(n1), AtomKind::Number(n2)) => n1.partial_cmp(n2),
             (AtomKind::String(s1), AtomKind::String(s2)) => s1.partial_cmp(s2),
             _ => None,
         }
+    }
+}
+
+impl<'a> std::cmp::PartialEq for Atom<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind() == other.kind()
+    }
+}
+
+impl<'a> std::cmp::PartialOrd for Atom<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.kind().partial_cmp(other.kind())
     }
 }
 
