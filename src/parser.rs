@@ -13,20 +13,26 @@ pub struct Parser<'a> {
     lexer: Lexer<'a>,
 }
 
+impl<'a> From<Lexer<'a>> for Parser<'a> {
+    fn from(lexer: Lexer<'a>) -> Self {
+        Self { lexer }
+    }
+}
+
 impl<'a> Parser<'a> {
     pub fn lexer(&self) -> &Lexer<'a> {
         &self.lexer
     }
 
-    pub fn with_lexer(lexer: Lexer<'a>) -> Self {
+    pub fn new(source: &'a str) -> Self {
+        let lexer = Lexer::new(source);
         Self { lexer }
     }
 
     pub fn parse(&mut self) -> Result<TokenTree<'a>, Error> {
         let mut stmts = Vec::new();
         while let Some(_) = self.lexer.peek() {
-            let stmt = self.parse_stmt()?;
-            stmts.push(stmt);
+            stmts.push(self.parse_stmt()?);
         }
         Ok(TokenTree(stmts))
     }
