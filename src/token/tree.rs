@@ -1,5 +1,6 @@
 use super::{BinaryOperator, Keyword, Operator, UnaryOperator};
 use crate::error::{ParseErrorKind, RuntimeErrorKind};
+use miette::SourceSpan;
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
@@ -9,6 +10,15 @@ pub struct TokenTree<'a>(pub Vec<Stmt<'a>>);
 pub enum Stmt<'a> {
     Item(Item<'a>),
     Expr(Expr<'a>),
+}
+
+impl Stmt<'_> {
+    pub fn span(&self) -> SourceSpan {
+        match self {
+            Stmt::Item(_) => todo!(),
+            Stmt::Expr(expr) => expr.span(),
+        }
+    }
 }
 
 impl std::fmt::Display for Stmt<'_> {
@@ -36,6 +46,20 @@ pub enum Expr<'a> {
     Block {
         stmts: Vec<Stmt<'a>>,
     },
+}
+
+impl Expr<'_> {
+    pub fn span(&self) -> SourceSpan {
+        match self {
+            Expr::Atom(atom) => atom.span(),
+            Expr::Binary { left, right, .. } => merge_span(left.span(), right.span()),
+            Expr::Unary { expr, .. } => expr.span(),
+            Expr::Group(expr) => expr.span(),
+            Expr::Block { stmts } => {
+                todo!()
+            }
+        }
+    }
 }
 
 impl std::fmt::Display for Expr<'_> {
@@ -100,7 +124,27 @@ impl std::fmt::Display for TokenTree<'_> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Atom<'a> {
+pub struct Atom<'a> {
+    kind: AtomKind<'a>,
+    span: SourceSpan,
+}
+
+impl<'a> Atom<'a> {
+    pub fn new(kind: AtomKind<'a>, span: SourceSpan) -> Self {
+        Self { kind, span }
+    }
+
+    pub fn kind(&self) -> &AtomKind<'a> {
+        &self.kind
+    }
+
+    pub fn span(&self) -> SourceSpan {
+        self.span
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum AtomKind<'a> {
     String(Cow<'a, str>),
     Number(f64),
     Nil,
@@ -110,19 +154,32 @@ pub enum Atom<'a> {
     This,
 }
 
+pub fn merge_span(s1: SourceSpan, s2: SourceSpan) -> SourceSpan {
+    let start = usize::min(s1.offset(), s2.offset());
+    let s1_end = s1.offset() + s1.len();
+    let s2_end = s2.offset() + s2.len();
+    let length = usize::max(s1_end, s2_end) - start;
+
+    SourceSpan::new(start.into(), length)
+}
+
 impl<'a> std::ops::Add for Atom<'a> {
     type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn add(self, other: Atom<'_>) -> Self::Output {
-        match (self, other) {
-            (Atom::String(s1), Atom::String(s2)) => {
-                Ok(Atom::String(Cow::Owned(format!("{}{}", s1, s2))))
+        let kind = match (self.kind(), other.kind()) {
+            (AtomKind::String(s1), AtomKind::String(s2)) => {
+                AtomKind::String(Cow::Owned(format!("{}{}", s1, s2)))
             }
-            (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 + n2)),
-            _ => Err(RuntimeErrorKind::InvalidOperand(
-                "Operands must be two numbers or two strings.".to_string(),
-            )),
-        }
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => AtomKind::Number(n1 + n2),
+            _ => {
+                return Err(RuntimeErrorKind::InvalidOperand(
+                    "Operands must be two numbers or two strings.".to_string(),
+                ));
+            }
+        };
+        let span = merge_span(self.span(), other.span());
+        Ok(Atom::new(kind, span))
     }
 }
 
@@ -130,8 +187,11 @@ impl<'a> std::ops::Sub for Atom<'a> {
     type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn sub(self, other: Atom<'_>) -> Self::Output {
-        match (self, other) {
-            (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 - n2)),
+        match (self.kind(), other.kind()) {
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => Ok(Atom::new(
+                AtomKind::Number(n1 - n2),
+                merge_span(self.span(), other.span()),
+            )),
             _ => Err(RuntimeErrorKind::InvalidOperand(
                 "Operands must be numbers".to_string(),
             )),
@@ -143,8 +203,11 @@ impl<'a> std::ops::Mul for Atom<'a> {
     type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn mul(self, other: Atom<'_>) -> Self::Output {
-        match (self, other) {
-            (Atom::Number(n1), Atom::Number(n2)) => Ok(Atom::Number(n1 * n2)),
+        match (self.kind(), other.kind()) {
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => Ok(Atom::new(
+                AtomKind::Number(n1 * n2),
+                merge_span(self.span(), other.span()),
+            )),
             _ => Err(RuntimeErrorKind::InvalidOperand(
                 "Operands must be numbers".to_string(),
             )),
@@ -156,12 +219,17 @@ impl<'a> std::ops::Div for Atom<'a> {
     type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn div(self, other: Atom<'_>) -> Self::Output {
-        match (self, other) {
-            (Atom::Number(n1), Atom::Number(n2)) => Ok(if n2 == 0.0 {
-                Atom::Nil
-            } else {
-                Atom::Number(n1 / n2)
-            }),
+        match (self.kind(), other.kind()) {
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => {
+                if *n2 == 0.0 {
+                    Err(RuntimeErrorKind::DivisionByZero)
+                } else {
+                    Ok(Atom::new(
+                        AtomKind::Number(n1 / n2),
+                        merge_span(self.span(), other.span()),
+                    ))
+                }
+            }
             _ => Err(RuntimeErrorKind::InvalidOperand(
                 "Operands must be numbers".to_string(),
             )),
@@ -173,8 +241,8 @@ impl<'a> std::ops::Neg for Atom<'a> {
     type Output = Result<Atom<'a>, RuntimeErrorKind>;
 
     fn neg(self) -> Self::Output {
-        match self {
-            Atom::Number(n) => Ok(Atom::Number(-n)),
+        match self.kind() {
+            AtomKind::Number(n) => Ok(Atom::new(AtomKind::Number(-n), self.span())),
             _ => Err(RuntimeErrorKind::InvalidOperand(format!(
                 "Operand must be a number."
             ))),
@@ -186,21 +254,21 @@ impl<'a> std::ops::Not for Atom<'a> {
     type Output = Atom<'a>;
 
     fn not(self) -> Atom<'a> {
-        match self {
-            Atom::Bool(b) => Atom::Bool(!b),
-            _ => Atom::Nil,
+        match self.kind() {
+            AtomKind::Bool(b) => Atom::new(AtomKind::Bool(!b), self.span()),
+            _ => Atom::new(AtomKind::Nil, self.span()),
         }
     }
 }
 
 impl<'a> std::cmp::PartialEq for Atom<'a> {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Atom::String(s1), Atom::String(s2)) => s1 == s2,
-            (Atom::Number(n1), Atom::Number(n2)) => n1 == n2,
-            (Atom::Nil, Atom::Nil) => true,
-            (Atom::Bool(b1), Atom::Bool(b2)) => b1 == b2,
-            (Atom::Ident(i1), Atom::Ident(i2)) => i1 == i2,
+        match (self.kind(), other.kind()) {
+            (AtomKind::String(s1), AtomKind::String(s2)) => s1 == s2,
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => n1 == n2,
+            (AtomKind::Nil, AtomKind::Nil) => true,
+            (AtomKind::Bool(b1), AtomKind::Bool(b2)) => b1 == b2,
+            (AtomKind::Ident(i1), AtomKind::Ident(i2)) => i1 == i2,
             _ => false,
         }
     }
@@ -208,9 +276,9 @@ impl<'a> std::cmp::PartialEq for Atom<'a> {
 
 impl<'a> std::cmp::PartialOrd for Atom<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self, other) {
-            (Atom::Number(n1), Atom::Number(n2)) => n1.partial_cmp(n2),
-            (Atom::String(s1), Atom::String(s2)) => s1.partial_cmp(s2),
+        match (self.kind(), other.kind()) {
+            (AtomKind::Number(n1), AtomKind::Number(n2)) => n1.partial_cmp(n2),
+            (AtomKind::String(s1), AtomKind::String(s2)) => s1.partial_cmp(s2),
             _ => None,
         }
     }
@@ -218,20 +286,20 @@ impl<'a> std::cmp::PartialOrd for Atom<'a> {
 
 impl std::fmt::Display for Atom<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Atom::String(s) => write!(f, "{}", s),
-            Atom::Number(n) => {
+        match self.kind() {
+            AtomKind::String(s) => write!(f, "{}", s),
+            AtomKind::Number(n) => {
                 if n.fract() == 0f64 {
                     write!(f, "{}.0", n)
                 } else {
                     write!(f, "{}", n)
                 }
             }
-            Atom::Nil => write!(f, "nil"),
-            Atom::Bool(b) => write!(f, "{}", b),
-            Atom::Ident(i) => write!(f, "{}", i),
-            Atom::Super => write!(f, "super"),
-            Atom::This => write!(f, "this"),
+            AtomKind::Nil => write!(f, "nil"),
+            AtomKind::Bool(b) => write!(f, "{}", b),
+            AtomKind::Ident(i) => write!(f, "{}", i),
+            AtomKind::Super => write!(f, "super"),
+            AtomKind::This => write!(f, "this"),
         }
     }
 }

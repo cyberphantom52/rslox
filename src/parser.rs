@@ -4,7 +4,7 @@ use crate::{
     error::{Error, ParseError, ParseErrorKind},
     lexer::Lexer,
     token::{
-        Atom, Expr, Keyword, Literal, Op, Operator, Stmt, Token, TokenTree, TokenType,
+        Atom, AtomKind, Expr, Keyword, Literal, Op, Operator, Stmt, Token, TokenTree, TokenType,
         UnaryOperator,
     },
 };
@@ -80,16 +80,21 @@ impl<'a> Parser<'a> {
 
         let mut lhs = match lhs.ty() {
             TokenType::Literal(lit) => match lit {
-                Literal::String => Expr::Atom(Atom::String(Token::unescape(lhs.lexeme()))),
-                Literal::Identifier => Expr::Atom(Atom::Ident(lhs.lexeme())),
-                Literal::Number(n) => Expr::Atom(Atom::Number(n)),
+                Literal::String => Expr::Atom(Atom::new(
+                    AtomKind::String(Token::unescape(lhs.lexeme())),
+                    lhs.span(),
+                )),
+                Literal::Identifier => {
+                    Expr::Atom(Atom::new(AtomKind::Ident(lhs.lexeme()), lhs.span()))
+                }
+                Literal::Number(n) => Expr::Atom(Atom::new(AtomKind::Number(n), lhs.span())),
             },
             TokenType::Keyword(kw) => match kw {
-                Keyword::True => Expr::Atom(Atom::Bool(true)),
-                Keyword::False => Expr::Atom(Atom::Bool(false)),
-                Keyword::Nil => Expr::Atom(Atom::Nil),
-                Keyword::This => Expr::Atom(Atom::This),
-                Keyword::Super => Expr::Atom(Atom::Super),
+                Keyword::True => Expr::Atom(Atom::new(AtomKind::Bool(true), lhs.span())),
+                Keyword::False => Expr::Atom(Atom::new(AtomKind::Bool(false), lhs.span())),
+                Keyword::Nil => Expr::Atom(Atom::new(AtomKind::Nil, lhs.span())),
+                Keyword::This => Expr::Atom(Atom::new(AtomKind::This, lhs.span())),
+                Keyword::Super => Expr::Atom(Atom::new(AtomKind::Super, lhs.span())),
                 Keyword::Print | Keyword::Return => {
                     // Safe to unwrap as we checked the token type
                     let op: Op = kw.try_into().map_err(|kind| {
