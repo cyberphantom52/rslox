@@ -1,4 +1,6 @@
+#[allow(clippy::module_inception)]
 mod operator;
+#[allow(clippy::module_inception)]
 mod token;
 mod tree;
 

@@ -85,6 +85,7 @@ impl<'a> Parser<'a> {
             }
         };
 
+        #[allow(clippy::while_let_loop)]
         loop {
             let op: Op = match self.lexer.peek() {
                 Some(token) => {

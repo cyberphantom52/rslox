@@ -19,9 +19,9 @@ impl TryFrom<&str> for Literal {
             if value.ends_with('"') {
                 Ok(Literal::String)
             } else {
-                return Err(Error::LexingError(LexingError::new(
+                Err(Error::LexingError(LexingError::new(
                     LexingErrorKind::UnterminatedString,
-                )));
+                )))
             }
         } else {
             // Get first char to determine type

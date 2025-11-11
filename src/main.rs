@@ -19,8 +19,8 @@ fn main() -> ExitCode {
     match args.command {
         Command::Tokenize { filename } => {
             let content = std::fs::read_to_string(&filename).expect("Failed to read the file");
-            let mut lexer = rslox::Lexer::new(content.as_str());
-            while let Some(token) = lexer.next() {
+            let lexer = rslox::Lexer::new(content.as_str());
+            for token in lexer {
                 match token {
                     Ok(t) => println!("{}", t),
                     Err(e) => {
@@ -47,5 +47,5 @@ fn main() -> ExitCode {
         }
     }
 
-    return exit_code;
+    exit_code
 }
