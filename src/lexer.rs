@@ -7,6 +7,7 @@ use crate::{
 pub struct Lexer<'a> {
     source_code: &'a str,
     byte_offset: usize,
+    line: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -14,11 +15,12 @@ impl<'a> Lexer<'a> {
         Self {
             source_code: stream,
             byte_offset: 0,
+            line: 1,
         }
     }
 
     pub fn line(&self) -> usize {
-        self.source_code[..self.byte_offset].lines().count()
+        self.line
     }
 
     pub fn expect(&mut self, expected: TokenType) -> Result<Token<'a>, Error> {
@@ -60,7 +62,12 @@ impl<'a> Iterator for Lexer<'a> {
             self.byte_offset += c.len_utf8();
 
             match c {
-                c if c.is_whitespace() => continue,
+                c if c.is_whitespace() => {
+                    if c == '\n' {
+                        self.line += 1;
+                    }
+                    continue;
+                }
                 c if is_punct(c) => {}
 
                 '!' | '=' | '<' | '>' => {
@@ -74,7 +81,10 @@ impl<'a> Iterator for Lexer<'a> {
                     Some(&next) if next == '/' => {
                         let newline = iterator.position(|c| c == '\n');
                         match newline {
-                            Some(pos) => self.byte_offset += pos + 1,
+                            Some(pos) => {
+                                self.byte_offset += pos + 1;
+                                self.line += 1;
+                            }
                             None => return None,
                         }
                         continue; // Skip to the next iteration
@@ -93,6 +103,9 @@ impl<'a> Iterator for Lexer<'a> {
 
                 '"' => {
                     if let Some(end) = iterator.position(|c| c == '"') {
+                        // Count newlines in the string literal
+                        let str_content = &self.source_code[self.byte_offset..self.byte_offset + end];
+                        self.line += str_content.chars().filter(|&c| c == '\n').count();
                         self.byte_offset += end + 1;
                     } else {
                         self.byte_offset = self.source_code.len();

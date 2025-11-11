@@ -23,13 +23,26 @@ impl TryFrom<&str> for Literal {
                     LexingErrorKind::UnterminatedString,
                 )));
             }
-        } else if value.chars().all(|c| c.is_ascii_digit() || c == '.') {
-            Ok(Literal::Number(value.parse::<f64>().unwrap()))
         } else {
-            let starts_with_number = value.chars().next().map_or(false, |c| c.is_ascii_digit());
+            // Get first char to determine type
+            let mut chars = value.chars();
+            let first = match chars.next() {
+                Some(c) => c,
+                None => return Err(Error::LexingError(LexingError::new(
+                    LexingErrorKind::InvalidLiteral(value.to_string()),
+                ))),
+            };
 
-            if !starts_with_number && value.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-                return Ok(Literal::Identifier);
+            if first.is_ascii_digit() || first == '.' {
+                // Check if it's a valid number
+                if value.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                    return Ok(Literal::Number(value.parse::<f64>().unwrap()));
+                }
+            } else if first.is_ascii_alphabetic() || first == '_' {
+                // Check if it's a valid identifier
+                if value.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                    return Ok(Literal::Identifier);
+                }
             }
 
             Err(Error::LexingError(LexingError::new(
