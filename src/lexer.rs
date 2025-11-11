@@ -7,6 +7,7 @@ use crate::{
 pub struct Lexer<'a> {
     source_code: &'a str,
     byte_offset: usize,
+    line: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -14,11 +15,12 @@ impl<'a> Lexer<'a> {
         Self {
             source_code: stream,
             byte_offset: 0,
+            line: 1,
         }
     }
 
     pub fn line(&self) -> usize {
-        self.source_code[..self.byte_offset].lines().count()
+        self.line
     }
 
     pub fn expect(&mut self, expected: TokenType) -> Result<Token<'a>, Error> {
@@ -60,7 +62,12 @@ impl<'a> Iterator for Lexer<'a> {
             self.byte_offset += c.len_utf8();
 
             match c {
-                c if c.is_whitespace() => continue,
+                c if c.is_whitespace() => {
+                    if c == '\n' {
+                        self.line += 1;
+                    }
+                    continue;
+                }
                 c if is_punct(c) => {}
 
                 '!' | '=' | '<' | '>' => {
@@ -70,17 +77,19 @@ impl<'a> Iterator for Lexer<'a> {
                     };
                 }
 
-                '/' => match iterator.peek() {
-                    Some(&next) if next == '/' => {
+                '/' => {
+                    if let Some(&'/') = iterator.peek() {
                         let newline = iterator.position(|c| c == '\n');
                         match newline {
-                            Some(pos) => self.byte_offset += pos + 1,
+                            Some(pos) => {
+                                self.byte_offset += pos + 1;
+                                self.line += 1;
+                            }
                             None => return None,
                         }
                         continue; // Skip to the next iteration
                     }
-                    _ => {}
-                },
+                }
 
                 // Literals
                 c if c.is_ascii_alphabetic() || c == '_' => {
@@ -93,6 +102,9 @@ impl<'a> Iterator for Lexer<'a> {
 
                 '"' => {
                     if let Some(end) = iterator.position(|c| c == '"') {
+                        // Count newlines in the string literal
+                        let str_content = &self.source_code[self.byte_offset..self.byte_offset + end];
+                        self.line += str_content.chars().filter(|&c| c == '\n').count();
                         self.byte_offset += end + 1;
                     } else {
                         self.byte_offset = self.source_code.len();
@@ -113,7 +125,7 @@ impl<'a> Iterator for Lexer<'a> {
                         self.source_code[cur_byte_offset..cur_byte_offset + len].splitn(3, '.');
                     self.byte_offset += match (split.next(), split.next(), split.next()) {
                         (Some(one), Some(two), Some(_)) => one.len() + two.len(),
-                        (Some(one), Some(two), None) if two.is_empty() => one.len() - 1,
+                        (Some(one), Some(""), None) => one.len() - 1,
                         _ => len - 1,
                     };
                 }
@@ -307,5 +319,57 @@ mod test {
                 None => panic!("Expected more tokens, but got None"),
             }
         }
+    }
+
+    #[test]
+    fn line_tracking_optimization() {
+        // Test that line tracking is efficient and correct across multiple newlines
+        let input = "var x = 1;\n\nvar y = 2;\n\n\nvar z = 3;";
+        let mut lexer = Lexer::new(input);
+        
+        // Verify initial line
+        assert_eq!(lexer.line(), 1);
+        
+        // Consume tokens from first line
+        lexer.next(); // var
+        lexer.next(); // x
+        lexer.next(); // =
+        lexer.next(); // 1
+        lexer.next(); // ;
+        
+        // After newlines, should be at line 3
+        lexer.next(); // var (on line 3)
+        assert_eq!(lexer.line(), 3);
+    }
+
+    #[test]
+    fn line_tracking_with_comments() {
+        let input = "var x = 1;\n// Comment line\nvar y = 2;";
+        let mut lexer = Lexer::new(input);
+        
+        // Skip to after comment
+        lexer.next(); // var
+        lexer.next(); // x
+        lexer.next(); // =
+        lexer.next(); // 1
+        lexer.next(); // ;
+        
+        // Should be on line 3 now (after comment)
+        lexer.next(); // var
+        assert_eq!(lexer.line(), 3);
+    }
+
+    #[test]
+    fn line_tracking_in_strings() {
+        let input = r#""line1
+line2
+line3"
+var x;"#;
+        let mut lexer = Lexer::new(input);
+        
+        lexer.next(); // string literal
+        // Should be on line 4 after multi-line string
+        lexer.next(); // var
+        assert_eq!(lexer.line(), 4);
     }
 }
